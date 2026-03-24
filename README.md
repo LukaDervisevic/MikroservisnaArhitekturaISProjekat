@@ -1,0 +1,2 @@
+# MikroservisnaArhitekturaISProjekat
+Projekat za predmet Mikroservisna arhitektura informacionih sistema na fakultetu organizacionih nauka
