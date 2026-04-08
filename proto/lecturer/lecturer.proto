@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package lecturer;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer";
+
+message Lecturer {
+    int64 id = 1;
+    string full_name = 2;
+    string title = 3;
+    string field_of_expertise = 4;
+}
+
+message LecturerName {
+    string name = 1;
+}
+
+service LecturerService {
+    rpc CreateLecturer(Lecturer) returns (google.protobuf.Empty) {}
+    rpc GetLecturerByName(LecturerName) returns (Lecturer) {}
+}
+
+

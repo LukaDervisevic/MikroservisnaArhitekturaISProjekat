@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package lecture;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+
+import "proto/lecturer/lecturer.proto";
+import "proto/event/event.proto";
+
+option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture";
+
+message Lecture {
+    lecturer.Lecturer lecturer = 1;
+    event.Event event = 2;
+    string name = 3;
+    google.protobuf.Duration duration = 4;
+}
+
+message LectureName {
+    string name = 1;
+}
+
+message LectureID {
+    int64 id = 1;
+}
+
+service LectureService {
+    rpc CreateLecture(Lecture) returns (google.protobuf.Empty) {}
+    rpc GetLectureByName(LectureName) returns (Lecture) {}
+    rpc GetLectureByID(LectureID) returns (Lecture) {}
+    rpc UpdateLecture(Lecture) returns (Lecture) {}
+}

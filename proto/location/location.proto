@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package location;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location";
+
+message Location {
+    int64 id = 1;
+    string name = 2;
+    string address = 3;
+    string capacity = 4;
+}
+
+message LocationName {
+    string name = 1;
+}
+
+service LocationService {
+  rpc CreateLocation(Location) returns (google.protobuf.Empty) {}
+  rpc GetLocationByName(LocationName) returns (Location) {}
+  rpc UpdateLocation(Location) returns (Location) {}
+}
+
+
+
