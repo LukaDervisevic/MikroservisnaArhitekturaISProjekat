@@ -13,13 +13,58 @@ message Lecturer {
     string field_of_expertise = 4;
 }
 
-message LecturerName {
-    string name = 1;
+message CreateLecturerRequest {
+    string full_name = 1;
+    string title = 2;
+    string field_of_expertise = 3;
+}
+
+message CreateLecturerResponse {
+    int64 id = 1;
+    string full_name = 2;
+    string title = 3;
+    string field_of_expertise = 4;
+}
+
+message GetLecturerRequest {
+    string full_name = 1;
+}
+
+message GetLecturersRequest {
+    string search_criteria = 1;
+}
+
+message UpdateLecturerRequest{
+    int64 id = 1;
+    string full_name = 2;
+    string title = 3;
+    string field_of_expertise = 4;
+}
+
+message GetLecturerResponse {
+    int64 id = 1;
+    string full_name = 2;
+    string title = 3;
+    string field_of_expertise = 4;
+}
+
+message DeleteLecturerRequest {
+    int64 id = 1;
+}
+
+message DeleteLecturerResponse {
+    int64 id = 1;
+    string full_name = 2;
+    string title = 3;
+    string field_of_expertise = 4;
 }
 
 service LecturerService {
-    rpc CreateLecturer(Lecturer) returns (google.protobuf.Empty) {}
-    rpc GetLecturerByName(LecturerName) returns (Lecturer) {}
+    rpc CreateLecturer(CreateLecturerRequest) returns (CreateLecturerResponse) {}
+    rpc GetLecturerByName(GetLecturerRequest) returns (GetLecturerResponse) {}
+    rpc UpdateLecturer(UpdateLecturerRequest) returns (google.protobuf.Empty) {}
+    rpc DeleteLecturer(DeleteLecturerRequest) returns (DeleteLecturerResponse) {}
+    rpc GetLecturers(GetLecturersRequest) returns (stream GetLecturerResponse) {}
 }
 
 

@@ -10,17 +10,61 @@ message Location {
     int64 id = 1;
     string name = 2;
     string address = 3;
-    string capacity = 4;
+    int64 capacity = 4;
 }
 
-message LocationName {
+message CreateLocationRequest {
+    string name = 1;
+    string address = 2;
+    int64 capacity = 3;
+}
+
+message CreateLocationResponse {
+    int64 id = 1;
+    string name = 2;
+    string address = 3;
+    int64 capacity = 4;
+}
+
+message GetLocationRequest {
     string name = 1;
 }
 
+message GetLocationsRequest {
+    string name = 1;
+}
+
+message GetLocationResponse {
+    int64 id = 1;
+    string name = 2;
+    string address = 3;
+    int64 capacity = 4;
+}
+
+message UpdateLocationRequest {
+    int64 id = 1;
+    string name = 2;
+    string address = 3;
+    int64 capacity = 4;
+}
+
+message DeleteLocationRequest {
+    int64 id = 1;
+}
+
+message DeleteLocationResponse {
+    int64 id = 1;
+    string name = 2;
+    string address = 3;
+    int64 capacity = 4;
+}
+
 service LocationService {
-  rpc CreateLocation(Location) returns (google.protobuf.Empty) {}
-  rpc GetLocationByName(LocationName) returns (Location) {}
-  rpc UpdateLocation(Location) returns (Location) {}
+  rpc CreateLocation(CreateLocationRequest) returns (CreateLocationResponse) {}
+  rpc GetLocationByName(GetLocationRequest) returns (GetLocationResponse) {}
+  rpc UpdateLocation(UpdateLocationRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteLocation(DeleteLocationRequest) returns (DeleteLocationResponse) {}
+  rpc GetLocations(GetLocationsRequest) returns (stream GetLocationResponse) {}
 }
 
 

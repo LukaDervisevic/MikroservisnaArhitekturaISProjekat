@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package event;
 
-import "google/type/datetime.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "proto/location/location.proto";
 
 option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event";
@@ -14,7 +14,7 @@ message Event {
     float cotisation_price = 3;
     string agenda = 4;
     string type = 5;
-    google.type.DateTime date_time = 6;
+    google.protobuf.Timestamp date_time = 6;
     location.Location location = 7;
 }
 
@@ -22,10 +22,73 @@ message EventName {
     string name = 1;
 }
 
+message CreateEventRequest {
+    string name = 1;
+    float cotisation_price = 2;
+    string agenda = 3;
+    string type = 4;
+    google.protobuf.Timestamp date_time = 5;
+    location.Location location = 6;
+}
+
+message CreateEventResponse {
+    int64 id = 1;
+    string name = 2;
+    float cotisation_price = 3;
+    string agenda = 4;
+    string type = 5;
+    google.protobuf.Timestamp date_time = 6;
+    location.Location location = 7;
+}
+
+message GetEventByNameRequest {
+    string name = 1;
+}
+
+message GetEventsRequest {
+    string search_criteria = 1;
+}
+
+message GetEventByNameResponse {
+    int64 id = 1;
+    string name = 2;
+    float cotisation_price = 3;
+    string agenda = 4;
+    string type = 5;
+    google.protobuf.Timestamp date_time = 6;
+    location.Location location = 7;
+}
+
+message UpdateEventRequest {
+    int64 id = 1;
+    string name = 2;
+    float cotisation_price = 3;
+    string agenda = 4;
+    string type = 5;
+    google.protobuf.Timestamp date_time = 6;
+    location.Location location = 7;
+}
+
+message DeleteEventRequest {
+    int64 id = 1;
+}
+
+message DeleteEventResponse {
+    int64 id = 1;
+    string name = 2;
+    float cotisation_price = 3;
+    string agenda = 4;
+    string type = 5;
+    google.protobuf.Timestamp date_time = 6;
+    location.Location location = 7;
+}
+
 service EventService {
-    rpc CreateEvent(Event) returns (google.protobuf.Empty) {}
-    rpc GetEventByName(EventName) returns (Event) {}
-    rpc UpdateEvent(Event) returns (Event) {}
+    rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse) {}
+    rpc GetEventByName(GetEventByNameRequest) returns (GetEventByNameResponse) {}
+    rpc UpdateEvent(UpdateEventRequest) returns (google.protobuf.Empty) {}
+    rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {}
+    rpc GetEvents(GetEventsRequest) returns (stream GetEventByNameResponse) {}
 }
 
 
