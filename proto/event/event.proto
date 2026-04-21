@@ -11,20 +11,16 @@ option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjeka
 message Event {
     int64 id = 1;
     string name = 2;
-    float cotisation_price = 3;
+    double cotisation_price = 3;  
     string agenda = 4;
     string type = 5;
     google.protobuf.Timestamp date_time = 6;
     location.Location location = 7;
 }
 
-message EventName {
-    string name = 1;
-}
-
 message CreateEventRequest {
     string name = 1;
-    float cotisation_price = 2;
+    double cotisation_price = 2;
     string agenda = 3;
     string type = 4;
     google.protobuf.Timestamp date_time = 5;
@@ -32,37 +28,17 @@ message CreateEventRequest {
 }
 
 message CreateEventResponse {
-    int64 id = 1;
-    string name = 2;
-    float cotisation_price = 3;
-    string agenda = 4;
-    string type = 5;
-    google.protobuf.Timestamp date_time = 6;
-    location.Location location = 7;
+    Event event = 1;  
 }
 
-message GetEventByNameRequest {
-    string name = 1;
-}
-
-message GetEventsRequest {
-    string search_criteria = 1;
-}
-
-message GetEventByNameResponse {
-    int64 id = 1;
-    string name = 2;
-    float cotisation_price = 3;
-    string agenda = 4;
-    string type = 5;
-    google.protobuf.Timestamp date_time = 6;
-    location.Location location = 7;
+message GetEventByIdRequest {
+    int64 id = 1; // fixed: was string, should be int64 to match your model
 }
 
 message UpdateEventRequest {
     int64 id = 1;
     string name = 2;
-    float cotisation_price = 3;
+    double cotisation_price = 3;
     string agenda = 4;
     string type = 5;
     google.protobuf.Timestamp date_time = 6;
@@ -74,23 +50,72 @@ message DeleteEventRequest {
 }
 
 message DeleteEventResponse {
-    int64 id = 1;
-    string name = 2;
-    float cotisation_price = 3;
-    string agenda = 4;
-    string type = 5;
-    google.protobuf.Timestamp date_time = 6;
-    location.Location location = 7;
+    Event event = 1; 
 }
 
+
+message GetEventByIDResponse {
+    Event event = 1;
+}
+
+
+message GetEventByNameRequest {
+    string name = 1;
+}
+
+message GetEventByNameResponse {
+    Event event = 1;
+}
+
+
+message ListEventsRequest {
+    int32 page      = 1;
+    int32 page_size = 2;
+    string type     = 3;
+    // Optional
+    google.protobuf.Timestamp from_date = 4;
+    google.protobuf.Timestamp to_date   = 5;
+    int64 location_id = 6;
+}
+
+message ListEventsResponse {
+    repeated Event events = 1;
+    int32 total_count     = 2;
+    int32 page            = 3;
+    int32 page_size       = 4;
+    bool has_next_page    = 5;
+}
+
+message ListEventsByTypeRequest {
+    string type     = 1;
+    int32 page      = 2;
+    int32 page_size = 3;
+}
+
+message ListEventsByTypeResponse {
+    repeated Event events = 1;
+    int32 total_count     = 2;
+    int32 page            = 3;
+    int32 page_size       = 4;
+    bool has_next_page    = 5;
+}
+
+// Event service
 service EventService {
-    rpc CreateEvent(CreateEventRequest) returns (CreateEventResponse) {}
-    rpc GetEventByName(GetEventByNameRequest) returns (GetEventByNameResponse) {}
-    rpc UpdateEvent(UpdateEventRequest) returns (google.protobuf.Empty) {}
-    rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse) {}
-    rpc GetEvents(GetEventsRequest) returns (stream GetEventByNameResponse) {}
+    // Creates event
+    rpc CreateEvent(CreateEventRequest)   returns (CreateEventResponse) {}
+    // Updates existing event
+    rpc UpdateEvent(UpdateEventRequest)   returns (google.protobuf.Empty) {}
+    // Deletes existing event
+    rpc DeleteEvent(DeleteEventRequest)   returns (DeleteEventResponse) {}
+
+    // Get event by id
+    rpc GetEventByID(GetEventByIdRequest)       returns (GetEventByIDResponse) {}
+    // Get event by name
+    rpc GetEventByName(GetEventByNameRequest)   returns (GetEventByNameResponse) {}
+
+    // List events
+    rpc ListEvents(ListEventsRequest)               returns (ListEventsResponse) {}
+    // List Events by type
+    rpc ListEventsByType(ListEventsByTypeRequest)   returns (ListEventsByTypeResponse) {}
 }
-
-
-
-

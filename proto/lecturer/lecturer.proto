@@ -6,12 +6,14 @@ import "google/protobuf/empty.proto";
 
 option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer";
 
+
 message Lecturer {
     int64 id = 1;
     string full_name = 2;
     string title = 3;
     string field_of_expertise = 4;
 }
+
 
 message CreateLecturerRequest {
     string full_name = 1;
@@ -20,51 +22,91 @@ message CreateLecturerRequest {
 }
 
 message CreateLecturerResponse {
-    int64 id = 1;
-    string full_name = 2;
-    string title = 3;
-    string field_of_expertise = 4;
+    Lecturer lecturer = 1;
 }
 
-message GetLecturerRequest {
+
+message GetLecturerByIDRequest {
+    int64 id = 1;
+}
+
+message GetLecturerByIDResponse {
+    Lecturer lecturer = 1;
+}
+
+
+message GetLecturerByNameRequest {
     string full_name = 1;
 }
 
-message GetLecturersRequest {
-    string search_criteria = 1;
+message GetLecturerByNameResponse {
+    Lecturer lecturer = 1;
 }
 
-message UpdateLecturerRequest{
+
+message ListLecturersRequest {
+    int32 page      = 1;
+    int32 page_size = 2;
+    string field_of_expertise = 3; 
+    string title              = 4; 
+}
+
+message ListLecturersResponse {
+    repeated Lecturer lecturers = 1;
+    int32 total_count           = 2;
+    int32 page                  = 3;
+    int32 page_size             = 4;
+    bool has_next_page          = 5;
+}
+
+
+message ListLecturersByFieldOfExpertiseRequest {
+    string field_of_expertise = 1;
+    int32 page                = 2;
+    int32 page_size           = 3;
+}
+
+message ListLecturersByFieldOfExpertiseResponse {
+    repeated Lecturer lecturers = 1;
+    int32 total_count           = 2;
+    int32 page                  = 3;
+    int32 page_size             = 4;
+    bool has_next_page          = 5;
+}
+
+
+message UpdateLecturerRequest {
     int64 id = 1;
     string full_name = 2;
     string title = 3;
     string field_of_expertise = 4;
 }
 
-message GetLecturerResponse {
-    int64 id = 1;
-    string full_name = 2;
-    string title = 3;
-    string field_of_expertise = 4;
-}
 
 message DeleteLecturerRequest {
     int64 id = 1;
 }
 
 message DeleteLecturerResponse {
-    int64 id = 1;
-    string full_name = 2;
-    string title = 3;
-    string field_of_expertise = 4;
+    Lecturer lecturer = 1;
 }
+
 
 service LecturerService {
-    rpc CreateLecturer(CreateLecturerRequest) returns (CreateLecturerResponse) {}
-    rpc GetLecturerByName(GetLecturerRequest) returns (GetLecturerResponse) {}
-    rpc UpdateLecturer(UpdateLecturerRequest) returns (google.protobuf.Empty) {}
-    rpc DeleteLecturer(DeleteLecturerRequest) returns (DeleteLecturerResponse) {}
-    rpc GetLecturers(GetLecturersRequest) returns (stream GetLecturerResponse) {}
+    // Create Lecturer
+    rpc CreateLecturer(CreateLecturerRequest)   returns (CreateLecturerResponse) {}
+    // Update Lecturer
+    rpc UpdateLecturer(UpdateLecturerRequest)   returns (google.protobuf.Empty) {}
+    // Delete Lecturer
+    rpc DeleteLecturer(DeleteLecturerRequest)   returns (DeleteLecturerResponse) {}
+
+    // Get Lecturer by ID
+    rpc GetLecturerByID(GetLecturerByIDRequest)       returns (GetLecturerByIDResponse) {}
+    // Get lecturer by name
+    rpc GetLecturerByName(GetLecturerByNameRequest)   returns (GetLecturerByNameResponse) {}
+
+    // List lecturers
+    rpc ListLecturers(ListLecturersRequest)                                       returns (ListLecturersResponse) {}
+    // List lecturers by field of expertise
+    rpc ListLecturersByFieldOfExpertise(ListLecturersByFieldOfExpertiseRequest)   returns (ListLecturersByFieldOfExpertiseResponse) {}
 }
-
-

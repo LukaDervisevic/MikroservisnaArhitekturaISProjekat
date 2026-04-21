@@ -18,11 +18,20 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LecturerServiceClient interface {
+	// Create Lecturer
 	CreateLecturer(ctx context.Context, in *CreateLecturerRequest, opts ...grpc.CallOption) (*CreateLecturerResponse, error)
-	GetLecturerByName(ctx context.Context, in *GetLecturerRequest, opts ...grpc.CallOption) (*GetLecturerResponse, error)
+	// Update Lecturer
 	UpdateLecturer(ctx context.Context, in *UpdateLecturerRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Delete Lecturer
 	DeleteLecturer(ctx context.Context, in *DeleteLecturerRequest, opts ...grpc.CallOption) (*DeleteLecturerResponse, error)
-	GetLecturers(ctx context.Context, in *GetLecturersRequest, opts ...grpc.CallOption) (LecturerService_GetLecturersClient, error)
+	// Get Lecturer by ID
+	GetLecturerByID(ctx context.Context, in *GetLecturerByIDRequest, opts ...grpc.CallOption) (*GetLecturerByIDResponse, error)
+	// Get lecturer by name
+	GetLecturerByName(ctx context.Context, in *GetLecturerByNameRequest, opts ...grpc.CallOption) (*GetLecturerByNameResponse, error)
+	// List lecturers
+	ListLecturers(ctx context.Context, in *ListLecturersRequest, opts ...grpc.CallOption) (*ListLecturersResponse, error)
+	// List lecturers by field of expertise
+	ListLecturersByFieldOfExpertise(ctx context.Context, in *ListLecturersByFieldOfExpertiseRequest, opts ...grpc.CallOption) (*ListLecturersByFieldOfExpertiseResponse, error)
 }
 
 type lecturerServiceClient struct {
@@ -36,15 +45,6 @@ func NewLecturerServiceClient(cc grpc.ClientConnInterface) LecturerServiceClient
 func (c *lecturerServiceClient) CreateLecturer(ctx context.Context, in *CreateLecturerRequest, opts ...grpc.CallOption) (*CreateLecturerResponse, error) {
 	out := new(CreateLecturerResponse)
 	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/CreateLecturer", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *lecturerServiceClient) GetLecturerByName(ctx context.Context, in *GetLecturerRequest, opts ...grpc.CallOption) (*GetLecturerResponse, error) {
-	out := new(GetLecturerResponse)
-	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/GetLecturerByName", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,47 +69,60 @@ func (c *lecturerServiceClient) DeleteLecturer(ctx context.Context, in *DeleteLe
 	return out, nil
 }
 
-func (c *lecturerServiceClient) GetLecturers(ctx context.Context, in *GetLecturersRequest, opts ...grpc.CallOption) (LecturerService_GetLecturersClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_LecturerService_serviceDesc.Streams[0], "/lecturer.LecturerService/GetLecturers", opts...)
+func (c *lecturerServiceClient) GetLecturerByID(ctx context.Context, in *GetLecturerByIDRequest, opts ...grpc.CallOption) (*GetLecturerByIDResponse, error) {
+	out := new(GetLecturerByIDResponse)
+	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/GetLecturerByID", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &lecturerServiceGetLecturersClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type LecturerService_GetLecturersClient interface {
-	Recv() (*GetLecturerResponse, error)
-	grpc.ClientStream
-}
-
-type lecturerServiceGetLecturersClient struct {
-	grpc.ClientStream
-}
-
-func (x *lecturerServiceGetLecturersClient) Recv() (*GetLecturerResponse, error) {
-	m := new(GetLecturerResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+func (c *lecturerServiceClient) GetLecturerByName(ctx context.Context, in *GetLecturerByNameRequest, opts ...grpc.CallOption) (*GetLecturerByNameResponse, error) {
+	out := new(GetLecturerByNameResponse)
+	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/GetLecturerByName", in, out, opts...)
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return out, nil
+}
+
+func (c *lecturerServiceClient) ListLecturers(ctx context.Context, in *ListLecturersRequest, opts ...grpc.CallOption) (*ListLecturersResponse, error) {
+	out := new(ListLecturersResponse)
+	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/ListLecturers", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *lecturerServiceClient) ListLecturersByFieldOfExpertise(ctx context.Context, in *ListLecturersByFieldOfExpertiseRequest, opts ...grpc.CallOption) (*ListLecturersByFieldOfExpertiseResponse, error) {
+	out := new(ListLecturersByFieldOfExpertiseResponse)
+	err := c.cc.Invoke(ctx, "/lecturer.LecturerService/ListLecturersByFieldOfExpertise", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // LecturerServiceServer is the server API for LecturerService service.
 // All implementations must embed UnimplementedLecturerServiceServer
 // for forward compatibility
 type LecturerServiceServer interface {
+	// Create Lecturer
 	CreateLecturer(context.Context, *CreateLecturerRequest) (*CreateLecturerResponse, error)
-	GetLecturerByName(context.Context, *GetLecturerRequest) (*GetLecturerResponse, error)
+	// Update Lecturer
 	UpdateLecturer(context.Context, *UpdateLecturerRequest) (*emptypb.Empty, error)
+	// Delete Lecturer
 	DeleteLecturer(context.Context, *DeleteLecturerRequest) (*DeleteLecturerResponse, error)
-	GetLecturers(*GetLecturersRequest, LecturerService_GetLecturersServer) error
+	// Get Lecturer by ID
+	GetLecturerByID(context.Context, *GetLecturerByIDRequest) (*GetLecturerByIDResponse, error)
+	// Get lecturer by name
+	GetLecturerByName(context.Context, *GetLecturerByNameRequest) (*GetLecturerByNameResponse, error)
+	// List lecturers
+	ListLecturers(context.Context, *ListLecturersRequest) (*ListLecturersResponse, error)
+	// List lecturers by field of expertise
+	ListLecturersByFieldOfExpertise(context.Context, *ListLecturersByFieldOfExpertiseRequest) (*ListLecturersByFieldOfExpertiseResponse, error)
 	mustEmbedUnimplementedLecturerServiceServer()
 }
 
@@ -120,17 +133,23 @@ type UnimplementedLecturerServiceServer struct {
 func (UnimplementedLecturerServiceServer) CreateLecturer(context.Context, *CreateLecturerRequest) (*CreateLecturerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateLecturer not implemented")
 }
-func (UnimplementedLecturerServiceServer) GetLecturerByName(context.Context, *GetLecturerRequest) (*GetLecturerResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLecturerByName not implemented")
-}
 func (UnimplementedLecturerServiceServer) UpdateLecturer(context.Context, *UpdateLecturerRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateLecturer not implemented")
 }
 func (UnimplementedLecturerServiceServer) DeleteLecturer(context.Context, *DeleteLecturerRequest) (*DeleteLecturerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteLecturer not implemented")
 }
-func (UnimplementedLecturerServiceServer) GetLecturers(*GetLecturersRequest, LecturerService_GetLecturersServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetLecturers not implemented")
+func (UnimplementedLecturerServiceServer) GetLecturerByID(context.Context, *GetLecturerByIDRequest) (*GetLecturerByIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLecturerByID not implemented")
+}
+func (UnimplementedLecturerServiceServer) GetLecturerByName(context.Context, *GetLecturerByNameRequest) (*GetLecturerByNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLecturerByName not implemented")
+}
+func (UnimplementedLecturerServiceServer) ListLecturers(context.Context, *ListLecturersRequest) (*ListLecturersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLecturers not implemented")
+}
+func (UnimplementedLecturerServiceServer) ListLecturersByFieldOfExpertise(context.Context, *ListLecturersByFieldOfExpertiseRequest) (*ListLecturersByFieldOfExpertiseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLecturersByFieldOfExpertise not implemented")
 }
 func (UnimplementedLecturerServiceServer) mustEmbedUnimplementedLecturerServiceServer() {}
 
@@ -159,24 +178,6 @@ func _LecturerService_CreateLecturer_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LecturerServiceServer).CreateLecturer(ctx, req.(*CreateLecturerRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LecturerService_GetLecturerByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetLecturerRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LecturerServiceServer).GetLecturerByName(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/lecturer.LecturerService/GetLecturerByName",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LecturerServiceServer).GetLecturerByName(ctx, req.(*GetLecturerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -217,25 +218,76 @@ func _LecturerService_DeleteLecturer_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LecturerService_GetLecturers_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetLecturersRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _LecturerService_GetLecturerByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLecturerByIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(LecturerServiceServer).GetLecturers(m, &lecturerServiceGetLecturersServer{stream})
+	if interceptor == nil {
+		return srv.(LecturerServiceServer).GetLecturerByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecturer.LecturerService/GetLecturerByID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LecturerServiceServer).GetLecturerByID(ctx, req.(*GetLecturerByIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type LecturerService_GetLecturersServer interface {
-	Send(*GetLecturerResponse) error
-	grpc.ServerStream
+func _LecturerService_GetLecturerByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLecturerByNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LecturerServiceServer).GetLecturerByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecturer.LecturerService/GetLecturerByName",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LecturerServiceServer).GetLecturerByName(ctx, req.(*GetLecturerByNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type lecturerServiceGetLecturersServer struct {
-	grpc.ServerStream
+func _LecturerService_ListLecturers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLecturersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LecturerServiceServer).ListLecturers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecturer.LecturerService/ListLecturers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LecturerServiceServer).ListLecturers(ctx, req.(*ListLecturersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func (x *lecturerServiceGetLecturersServer) Send(m *GetLecturerResponse) error {
-	return x.ServerStream.SendMsg(m)
+func _LecturerService_ListLecturersByFieldOfExpertise_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLecturersByFieldOfExpertiseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LecturerServiceServer).ListLecturersByFieldOfExpertise(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecturer.LecturerService/ListLecturersByFieldOfExpertise",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LecturerServiceServer).ListLecturersByFieldOfExpertise(ctx, req.(*ListLecturersByFieldOfExpertiseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _LecturerService_serviceDesc = grpc.ServiceDesc{
@@ -247,10 +299,6 @@ var _LecturerService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _LecturerService_CreateLecturer_Handler,
 		},
 		{
-			MethodName: "GetLecturerByName",
-			Handler:    _LecturerService_GetLecturerByName_Handler,
-		},
-		{
 			MethodName: "UpdateLecturer",
 			Handler:    _LecturerService_UpdateLecturer_Handler,
 		},
@@ -258,13 +306,23 @@ var _LecturerService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteLecturer",
 			Handler:    _LecturerService_DeleteLecturer_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetLecturers",
-			Handler:       _LecturerService_GetLecturers_Handler,
-			ServerStreams: true,
+			MethodName: "GetLecturerByID",
+			Handler:    _LecturerService_GetLecturerByID_Handler,
+		},
+		{
+			MethodName: "GetLecturerByName",
+			Handler:    _LecturerService_GetLecturerByName_Handler,
+		},
+		{
+			MethodName: "ListLecturers",
+			Handler:    _LecturerService_ListLecturers_Handler,
+		},
+		{
+			MethodName: "ListLecturersByFieldOfExpertise",
+			Handler:    _LecturerService_ListLecturersByFieldOfExpertise_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/lecturer/lecturer.proto",
 }

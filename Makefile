@@ -1,30 +1,50 @@
 PROTO_DIR = proto
 
-PROTO_FILES_PREDAVAC = proto/predavac-service/predavac-service.proto
-OUT_PREDAVAC = proto/predavac-service
+PROTO_FILES_LECTURER = proto/lecturer/lecturer.proto
+OUT_LECTURER = .
 
-PROTO_FILES_DOGADJAJ = proto/dogadjaj-service/dogadjaj-service.proto
-OUT_DOGADJAJ = proto/dogadjaj-service
+PROTO_FILES_LECTURE = proto/lecture/lecture.proto
+OUT_LECTURE = .
 
-.PHONY proto
+PROTO_FILES_LOCATION = proto/location/location.proto
+OUT_LOCATION = .
 
-proto: dogadjaj predavac 
+PROTO_FILES_EVENT = proto/event/event.proto
+OUT_EVENT = .
 
-dogadjaj:
+.PHONY: proto
+
+proto: event lecturer 
+
+event:
 	protoc \
-		--proto-path=$(PROTO_DIR)
-		--go-out=$(OUT_DOGADJAJ) \
+		--go_out=$(OUT_EVENT) \
 		--go_opt=paths=source_relative \
-		--go-grpc-out=$(OUT_DOGADJAJ)
-		--go_grpc_opt=paths=source_relative \
-		$(PROTO_FILES_DOGADJAJ)
+		--go-grpc_out=$(OUT_EVENT) \
+		--go-grpc_opt=paths=source_relative \
+		$(PROTO_FILES_EVENT)
 
-predavac:
+lecture:
 	protoc \
-		--proto-path=$(PROTO_DIR) \
-		--go-out=$(OUT_PREDAVAC) \
+		--go_out=$(OUT_LECTURE) \
 		--go_opt=paths=source_relative \
-		--go_grpc_out=$(OUT_PREDAVAC)
-		--go_grpc_opt=paths=source_relative \
-		$(PROTO_FILES_PREDAVAC)
+		--go-grpc_out=$(OUT_LECTURE) \
+		--go-grpc_opt=paths=source_relative \
+		$(PROTO_FILES_LECTURE)
+
+lecturer:
+	protoc \
+		--go_out=$(OUT_LECTURER) \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=$(OUT_LECTURER) \
+		--go-grpc_opt=paths=source_relative \
+		$(PROTO_FILES_LECTURER)
+
+location:
+	protoc \
+		--go_out=$(OUT_LOCATION) \
+		--go_opt=paths=source_relative \
+		--go-grpc_out=$(OUT_LOCATION) \
+		--go-grpc_opt=paths=source_relative \
+		$(PROTO_FILES_LOCATION)
 

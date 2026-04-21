@@ -18,11 +18,20 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LectureServiceClient interface {
+	// Create lecture
 	CreateLecture(ctx context.Context, in *CreateLectureRequest, opts ...grpc.CallOption) (*CreateLectureResponse, error)
-	GetLectureByName(ctx context.Context, in *GetLectureRequest, opts ...grpc.CallOption) (*GetLectureResponse, error)
+	// Update lecture
 	UpdateLecture(ctx context.Context, in *UpdateLectureRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Delete lecture
 	DeleteLecture(ctx context.Context, in *DeleteLectureRequest, opts ...grpc.CallOption) (*DeleteLectureResponse, error)
-	GetLectures(ctx context.Context, in *GetLecturesRequest, opts ...grpc.CallOption) (LectureService_GetLecturesClient, error)
+	// Get lecture by id
+	GetLectureByID(ctx context.Context, in *GetLectureByIDRequest, opts ...grpc.CallOption) (*GetLectureByIDResponse, error)
+	// Get lecture by name
+	GetLectureByName(ctx context.Context, in *GetLectureByNameRequest, opts ...grpc.CallOption) (*GetLectureByNameResponse, error)
+	// List lecture by event id
+	ListLecturesByEventID(ctx context.Context, in *ListLecturesByEventIDRequest, opts ...grpc.CallOption) (*ListLecturesByEventIDResponse, error)
+	// List lecture by leturer id
+	ListLecturesByLecturerID(ctx context.Context, in *ListLecturesByLecturerIDRequest, opts ...grpc.CallOption) (*ListLecturesByLecturerIDResponse, error)
 }
 
 type lectureServiceClient struct {
@@ -36,15 +45,6 @@ func NewLectureServiceClient(cc grpc.ClientConnInterface) LectureServiceClient {
 func (c *lectureServiceClient) CreateLecture(ctx context.Context, in *CreateLectureRequest, opts ...grpc.CallOption) (*CreateLectureResponse, error) {
 	out := new(CreateLectureResponse)
 	err := c.cc.Invoke(ctx, "/lecture.LectureService/CreateLecture", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *lectureServiceClient) GetLectureByName(ctx context.Context, in *GetLectureRequest, opts ...grpc.CallOption) (*GetLectureResponse, error) {
-	out := new(GetLectureResponse)
-	err := c.cc.Invoke(ctx, "/lecture.LectureService/GetLectureByName", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,47 +69,60 @@ func (c *lectureServiceClient) DeleteLecture(ctx context.Context, in *DeleteLect
 	return out, nil
 }
 
-func (c *lectureServiceClient) GetLectures(ctx context.Context, in *GetLecturesRequest, opts ...grpc.CallOption) (LectureService_GetLecturesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_LectureService_serviceDesc.Streams[0], "/lecture.LectureService/GetLectures", opts...)
+func (c *lectureServiceClient) GetLectureByID(ctx context.Context, in *GetLectureByIDRequest, opts ...grpc.CallOption) (*GetLectureByIDResponse, error) {
+	out := new(GetLectureByIDResponse)
+	err := c.cc.Invoke(ctx, "/lecture.LectureService/GetLectureByID", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &lectureServiceGetLecturesClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type LectureService_GetLecturesClient interface {
-	Recv() (*GetLectureResponse, error)
-	grpc.ClientStream
-}
-
-type lectureServiceGetLecturesClient struct {
-	grpc.ClientStream
-}
-
-func (x *lectureServiceGetLecturesClient) Recv() (*GetLectureResponse, error) {
-	m := new(GetLectureResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+func (c *lectureServiceClient) GetLectureByName(ctx context.Context, in *GetLectureByNameRequest, opts ...grpc.CallOption) (*GetLectureByNameResponse, error) {
+	out := new(GetLectureByNameResponse)
+	err := c.cc.Invoke(ctx, "/lecture.LectureService/GetLectureByName", in, out, opts...)
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return out, nil
+}
+
+func (c *lectureServiceClient) ListLecturesByEventID(ctx context.Context, in *ListLecturesByEventIDRequest, opts ...grpc.CallOption) (*ListLecturesByEventIDResponse, error) {
+	out := new(ListLecturesByEventIDResponse)
+	err := c.cc.Invoke(ctx, "/lecture.LectureService/ListLecturesByEventID", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *lectureServiceClient) ListLecturesByLecturerID(ctx context.Context, in *ListLecturesByLecturerIDRequest, opts ...grpc.CallOption) (*ListLecturesByLecturerIDResponse, error) {
+	out := new(ListLecturesByLecturerIDResponse)
+	err := c.cc.Invoke(ctx, "/lecture.LectureService/ListLecturesByLecturerID", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // LectureServiceServer is the server API for LectureService service.
 // All implementations must embed UnimplementedLectureServiceServer
 // for forward compatibility
 type LectureServiceServer interface {
+	// Create lecture
 	CreateLecture(context.Context, *CreateLectureRequest) (*CreateLectureResponse, error)
-	GetLectureByName(context.Context, *GetLectureRequest) (*GetLectureResponse, error)
+	// Update lecture
 	UpdateLecture(context.Context, *UpdateLectureRequest) (*emptypb.Empty, error)
+	// Delete lecture
 	DeleteLecture(context.Context, *DeleteLectureRequest) (*DeleteLectureResponse, error)
-	GetLectures(*GetLecturesRequest, LectureService_GetLecturesServer) error
+	// Get lecture by id
+	GetLectureByID(context.Context, *GetLectureByIDRequest) (*GetLectureByIDResponse, error)
+	// Get lecture by name
+	GetLectureByName(context.Context, *GetLectureByNameRequest) (*GetLectureByNameResponse, error)
+	// List lecture by event id
+	ListLecturesByEventID(context.Context, *ListLecturesByEventIDRequest) (*ListLecturesByEventIDResponse, error)
+	// List lecture by leturer id
+	ListLecturesByLecturerID(context.Context, *ListLecturesByLecturerIDRequest) (*ListLecturesByLecturerIDResponse, error)
 	mustEmbedUnimplementedLectureServiceServer()
 }
 
@@ -120,17 +133,23 @@ type UnimplementedLectureServiceServer struct {
 func (UnimplementedLectureServiceServer) CreateLecture(context.Context, *CreateLectureRequest) (*CreateLectureResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateLecture not implemented")
 }
-func (UnimplementedLectureServiceServer) GetLectureByName(context.Context, *GetLectureRequest) (*GetLectureResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLectureByName not implemented")
-}
 func (UnimplementedLectureServiceServer) UpdateLecture(context.Context, *UpdateLectureRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateLecture not implemented")
 }
 func (UnimplementedLectureServiceServer) DeleteLecture(context.Context, *DeleteLectureRequest) (*DeleteLectureResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteLecture not implemented")
 }
-func (UnimplementedLectureServiceServer) GetLectures(*GetLecturesRequest, LectureService_GetLecturesServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetLectures not implemented")
+func (UnimplementedLectureServiceServer) GetLectureByID(context.Context, *GetLectureByIDRequest) (*GetLectureByIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLectureByID not implemented")
+}
+func (UnimplementedLectureServiceServer) GetLectureByName(context.Context, *GetLectureByNameRequest) (*GetLectureByNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLectureByName not implemented")
+}
+func (UnimplementedLectureServiceServer) ListLecturesByEventID(context.Context, *ListLecturesByEventIDRequest) (*ListLecturesByEventIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLecturesByEventID not implemented")
+}
+func (UnimplementedLectureServiceServer) ListLecturesByLecturerID(context.Context, *ListLecturesByLecturerIDRequest) (*ListLecturesByLecturerIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLecturesByLecturerID not implemented")
 }
 func (UnimplementedLectureServiceServer) mustEmbedUnimplementedLectureServiceServer() {}
 
@@ -159,24 +178,6 @@ func _LectureService_CreateLecture_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LectureServiceServer).CreateLecture(ctx, req.(*CreateLectureRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LectureService_GetLectureByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetLectureRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LectureServiceServer).GetLectureByName(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/lecture.LectureService/GetLectureByName",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LectureServiceServer).GetLectureByName(ctx, req.(*GetLectureRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -217,25 +218,76 @@ func _LectureService_DeleteLecture_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LectureService_GetLectures_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetLecturesRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _LectureService_GetLectureByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLectureByIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(LectureServiceServer).GetLectures(m, &lectureServiceGetLecturesServer{stream})
+	if interceptor == nil {
+		return srv.(LectureServiceServer).GetLectureByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecture.LectureService/GetLectureByID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LectureServiceServer).GetLectureByID(ctx, req.(*GetLectureByIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type LectureService_GetLecturesServer interface {
-	Send(*GetLectureResponse) error
-	grpc.ServerStream
+func _LectureService_GetLectureByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLectureByNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LectureServiceServer).GetLectureByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecture.LectureService/GetLectureByName",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LectureServiceServer).GetLectureByName(ctx, req.(*GetLectureByNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type lectureServiceGetLecturesServer struct {
-	grpc.ServerStream
+func _LectureService_ListLecturesByEventID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLecturesByEventIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LectureServiceServer).ListLecturesByEventID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecture.LectureService/ListLecturesByEventID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LectureServiceServer).ListLecturesByEventID(ctx, req.(*ListLecturesByEventIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func (x *lectureServiceGetLecturesServer) Send(m *GetLectureResponse) error {
-	return x.ServerStream.SendMsg(m)
+func _LectureService_ListLecturesByLecturerID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLecturesByLecturerIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LectureServiceServer).ListLecturesByLecturerID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/lecture.LectureService/ListLecturesByLecturerID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LectureServiceServer).ListLecturesByLecturerID(ctx, req.(*ListLecturesByLecturerIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _LectureService_serviceDesc = grpc.ServiceDesc{
@@ -247,10 +299,6 @@ var _LectureService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _LectureService_CreateLecture_Handler,
 		},
 		{
-			MethodName: "GetLectureByName",
-			Handler:    _LectureService_GetLectureByName_Handler,
-		},
-		{
 			MethodName: "UpdateLecture",
 			Handler:    _LectureService_UpdateLecture_Handler,
 		},
@@ -258,13 +306,23 @@ var _LectureService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteLecture",
 			Handler:    _LectureService_DeleteLecture_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetLectures",
-			Handler:       _LectureService_GetLectures_Handler,
-			ServerStreams: true,
+			MethodName: "GetLectureByID",
+			Handler:    _LectureService_GetLectureByID_Handler,
+		},
+		{
+			MethodName: "GetLectureByName",
+			Handler:    _LectureService_GetLectureByName_Handler,
+		},
+		{
+			MethodName: "ListLecturesByEventID",
+			Handler:    _LectureService_ListLecturesByEventID_Handler,
+		},
+		{
+			MethodName: "ListLecturesByLecturerID",
+			Handler:    _LectureService_ListLecturesByLecturerID_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/lecture/lecture.proto",
 }

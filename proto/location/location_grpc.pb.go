@@ -18,11 +18,20 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type LocationServiceClient interface {
+	// Create Location
 	CreateLocation(ctx context.Context, in *CreateLocationRequest, opts ...grpc.CallOption) (*CreateLocationResponse, error)
-	GetLocationByName(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*GetLocationResponse, error)
+	// Update Location
 	UpdateLocation(ctx context.Context, in *UpdateLocationRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Delete Location
 	DeleteLocation(ctx context.Context, in *DeleteLocationRequest, opts ...grpc.CallOption) (*DeleteLocationResponse, error)
-	GetLocations(ctx context.Context, in *GetLocationsRequest, opts ...grpc.CallOption) (LocationService_GetLocationsClient, error)
+	// Get Location by ID
+	GetLocationByID(ctx context.Context, in *GetLocationByIDRequest, opts ...grpc.CallOption) (*GetLocationByIDResponse, error)
+	// Get Location by name
+	GetLocationByName(ctx context.Context, in *GetLocationByNameRequest, opts ...grpc.CallOption) (*GetLocationByNameResponse, error)
+	// List Locations
+	ListLocations(ctx context.Context, in *ListLocationsRequest, opts ...grpc.CallOption) (*ListLocationsResponse, error)
+	// List Locations by min capacity
+	ListLocationsByMinCapacity(ctx context.Context, in *ListLocationsByMinCapacityRequest, opts ...grpc.CallOption) (*ListLocationsByMinCapacityResponse, error)
 }
 
 type locationServiceClient struct {
@@ -36,15 +45,6 @@ func NewLocationServiceClient(cc grpc.ClientConnInterface) LocationServiceClient
 func (c *locationServiceClient) CreateLocation(ctx context.Context, in *CreateLocationRequest, opts ...grpc.CallOption) (*CreateLocationResponse, error) {
 	out := new(CreateLocationResponse)
 	err := c.cc.Invoke(ctx, "/location.LocationService/CreateLocation", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *locationServiceClient) GetLocationByName(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*GetLocationResponse, error) {
-	out := new(GetLocationResponse)
-	err := c.cc.Invoke(ctx, "/location.LocationService/GetLocationByName", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,47 +69,60 @@ func (c *locationServiceClient) DeleteLocation(ctx context.Context, in *DeleteLo
 	return out, nil
 }
 
-func (c *locationServiceClient) GetLocations(ctx context.Context, in *GetLocationsRequest, opts ...grpc.CallOption) (LocationService_GetLocationsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_LocationService_serviceDesc.Streams[0], "/location.LocationService/GetLocations", opts...)
+func (c *locationServiceClient) GetLocationByID(ctx context.Context, in *GetLocationByIDRequest, opts ...grpc.CallOption) (*GetLocationByIDResponse, error) {
+	out := new(GetLocationByIDResponse)
+	err := c.cc.Invoke(ctx, "/location.LocationService/GetLocationByID", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &locationServiceGetLocationsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
+	return out, nil
 }
 
-type LocationService_GetLocationsClient interface {
-	Recv() (*GetLocationResponse, error)
-	grpc.ClientStream
-}
-
-type locationServiceGetLocationsClient struct {
-	grpc.ClientStream
-}
-
-func (x *locationServiceGetLocationsClient) Recv() (*GetLocationResponse, error) {
-	m := new(GetLocationResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
+func (c *locationServiceClient) GetLocationByName(ctx context.Context, in *GetLocationByNameRequest, opts ...grpc.CallOption) (*GetLocationByNameResponse, error) {
+	out := new(GetLocationByNameResponse)
+	err := c.cc.Invoke(ctx, "/location.LocationService/GetLocationByName", in, out, opts...)
+	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return out, nil
+}
+
+func (c *locationServiceClient) ListLocations(ctx context.Context, in *ListLocationsRequest, opts ...grpc.CallOption) (*ListLocationsResponse, error) {
+	out := new(ListLocationsResponse)
+	err := c.cc.Invoke(ctx, "/location.LocationService/ListLocations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *locationServiceClient) ListLocationsByMinCapacity(ctx context.Context, in *ListLocationsByMinCapacityRequest, opts ...grpc.CallOption) (*ListLocationsByMinCapacityResponse, error) {
+	out := new(ListLocationsByMinCapacityResponse)
+	err := c.cc.Invoke(ctx, "/location.LocationService/ListLocationsByMinCapacity", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // LocationServiceServer is the server API for LocationService service.
 // All implementations must embed UnimplementedLocationServiceServer
 // for forward compatibility
 type LocationServiceServer interface {
+	// Create Location
 	CreateLocation(context.Context, *CreateLocationRequest) (*CreateLocationResponse, error)
-	GetLocationByName(context.Context, *GetLocationRequest) (*GetLocationResponse, error)
+	// Update Location
 	UpdateLocation(context.Context, *UpdateLocationRequest) (*emptypb.Empty, error)
+	// Delete Location
 	DeleteLocation(context.Context, *DeleteLocationRequest) (*DeleteLocationResponse, error)
-	GetLocations(*GetLocationsRequest, LocationService_GetLocationsServer) error
+	// Get Location by ID
+	GetLocationByID(context.Context, *GetLocationByIDRequest) (*GetLocationByIDResponse, error)
+	// Get Location by name
+	GetLocationByName(context.Context, *GetLocationByNameRequest) (*GetLocationByNameResponse, error)
+	// List Locations
+	ListLocations(context.Context, *ListLocationsRequest) (*ListLocationsResponse, error)
+	// List Locations by min capacity
+	ListLocationsByMinCapacity(context.Context, *ListLocationsByMinCapacityRequest) (*ListLocationsByMinCapacityResponse, error)
 	mustEmbedUnimplementedLocationServiceServer()
 }
 
@@ -120,17 +133,23 @@ type UnimplementedLocationServiceServer struct {
 func (UnimplementedLocationServiceServer) CreateLocation(context.Context, *CreateLocationRequest) (*CreateLocationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateLocation not implemented")
 }
-func (UnimplementedLocationServiceServer) GetLocationByName(context.Context, *GetLocationRequest) (*GetLocationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLocationByName not implemented")
-}
 func (UnimplementedLocationServiceServer) UpdateLocation(context.Context, *UpdateLocationRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateLocation not implemented")
 }
 func (UnimplementedLocationServiceServer) DeleteLocation(context.Context, *DeleteLocationRequest) (*DeleteLocationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteLocation not implemented")
 }
-func (UnimplementedLocationServiceServer) GetLocations(*GetLocationsRequest, LocationService_GetLocationsServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetLocations not implemented")
+func (UnimplementedLocationServiceServer) GetLocationByID(context.Context, *GetLocationByIDRequest) (*GetLocationByIDResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLocationByID not implemented")
+}
+func (UnimplementedLocationServiceServer) GetLocationByName(context.Context, *GetLocationByNameRequest) (*GetLocationByNameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLocationByName not implemented")
+}
+func (UnimplementedLocationServiceServer) ListLocations(context.Context, *ListLocationsRequest) (*ListLocationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLocations not implemented")
+}
+func (UnimplementedLocationServiceServer) ListLocationsByMinCapacity(context.Context, *ListLocationsByMinCapacityRequest) (*ListLocationsByMinCapacityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListLocationsByMinCapacity not implemented")
 }
 func (UnimplementedLocationServiceServer) mustEmbedUnimplementedLocationServiceServer() {}
 
@@ -159,24 +178,6 @@ func _LocationService_CreateLocation_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LocationServiceServer).CreateLocation(ctx, req.(*CreateLocationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LocationService_GetLocationByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetLocationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LocationServiceServer).GetLocationByName(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/location.LocationService/GetLocationByName",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LocationServiceServer).GetLocationByName(ctx, req.(*GetLocationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -217,25 +218,76 @@ func _LocationService_DeleteLocation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LocationService_GetLocations_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetLocationsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func _LocationService_GetLocationByID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLocationByIDRequest)
+	if err := dec(in); err != nil {
+		return nil, err
 	}
-	return srv.(LocationServiceServer).GetLocations(m, &locationServiceGetLocationsServer{stream})
+	if interceptor == nil {
+		return srv.(LocationServiceServer).GetLocationByID(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/location.LocationService/GetLocationByID",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocationServiceServer).GetLocationByID(ctx, req.(*GetLocationByIDRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type LocationService_GetLocationsServer interface {
-	Send(*GetLocationResponse) error
-	grpc.ServerStream
+func _LocationService_GetLocationByName_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLocationByNameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocationServiceServer).GetLocationByName(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/location.LocationService/GetLocationByName",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocationServiceServer).GetLocationByName(ctx, req.(*GetLocationByNameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-type locationServiceGetLocationsServer struct {
-	grpc.ServerStream
+func _LocationService_ListLocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLocationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocationServiceServer).ListLocations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/location.LocationService/ListLocations",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocationServiceServer).ListLocations(ctx, req.(*ListLocationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func (x *locationServiceGetLocationsServer) Send(m *GetLocationResponse) error {
-	return x.ServerStream.SendMsg(m)
+func _LocationService_ListLocationsByMinCapacity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListLocationsByMinCapacityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocationServiceServer).ListLocationsByMinCapacity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/location.LocationService/ListLocationsByMinCapacity",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocationServiceServer).ListLocationsByMinCapacity(ctx, req.(*ListLocationsByMinCapacityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 var _LocationService_serviceDesc = grpc.ServiceDesc{
@@ -247,10 +299,6 @@ var _LocationService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _LocationService_CreateLocation_Handler,
 		},
 		{
-			MethodName: "GetLocationByName",
-			Handler:    _LocationService_GetLocationByName_Handler,
-		},
-		{
 			MethodName: "UpdateLocation",
 			Handler:    _LocationService_UpdateLocation_Handler,
 		},
@@ -258,13 +306,23 @@ var _LocationService_serviceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteLocation",
 			Handler:    _LocationService_DeleteLocation_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetLocations",
-			Handler:       _LocationService_GetLocations_Handler,
-			ServerStreams: true,
+			MethodName: "GetLocationByID",
+			Handler:    _LocationService_GetLocationByID_Handler,
+		},
+		{
+			MethodName: "GetLocationByName",
+			Handler:    _LocationService_GetLocationByName_Handler,
+		},
+		{
+			MethodName: "ListLocations",
+			Handler:    _LocationService_ListLocations_Handler,
+		},
+		{
+			MethodName: "ListLocationsByMinCapacity",
+			Handler:    _LocationService_ListLocationsByMinCapacity_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/location/location.proto",
 }

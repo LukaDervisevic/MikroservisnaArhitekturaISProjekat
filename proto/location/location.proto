@@ -20,25 +20,53 @@ message CreateLocationRequest {
 }
 
 message CreateLocationResponse {
-    int64 id = 1;
-    string name = 2;
-    string address = 3;
-    int64 capacity = 4;
+    Location location = 1;
 }
 
-message GetLocationRequest {
+message GetLocationByIDRequest {
+    int64 id = 1;
+}
+
+message GetLocationByIDResponse {
+    Location location = 1;
+}
+
+message GetLocationByNameRequest {
     string name = 1;
 }
 
-message GetLocationsRequest {
-    string name = 1;
+message GetLocationByNameResponse {
+    Location location = 1;
 }
 
-message GetLocationResponse {
-    int64 id = 1;
-    string name = 2;
-    string address = 3;
-    int64 capacity = 4;
+message ListLocationsRequest {
+    int32 page      = 1;
+    int32 page_size = 2;
+    // optional filters
+    int64 min_capacity = 3; 
+    int64 max_capacity = 4;
+}
+
+message ListLocationsResponse {
+    repeated Location locations = 1;
+    int32 total_count           = 2;
+    int32 page                  = 3;
+    int32 page_size             = 4;
+    bool has_next_page          = 5;
+}
+
+message ListLocationsByMinCapacityRequest {
+    int64 min_capacity = 1;
+    int32 page         = 2;
+    int32 page_size    = 3;
+}
+
+message ListLocationsByMinCapacityResponse {
+    repeated Location locations = 1;
+    int32 total_count           = 2;
+    int32 page                  = 3;
+    int32 page_size             = 4;
+    bool has_next_page          = 5;
 }
 
 message UpdateLocationRequest {
@@ -53,19 +81,25 @@ message DeleteLocationRequest {
 }
 
 message DeleteLocationResponse {
-    int64 id = 1;
-    string name = 2;
-    string address = 3;
-    int64 capacity = 4;
+    Location location = 1;
 }
 
+// Location service
 service LocationService {
-  rpc CreateLocation(CreateLocationRequest) returns (CreateLocationResponse) {}
-  rpc GetLocationByName(GetLocationRequest) returns (GetLocationResponse) {}
-  rpc UpdateLocation(UpdateLocationRequest) returns (google.protobuf.Empty) {}
-  rpc DeleteLocation(DeleteLocationRequest) returns (DeleteLocationResponse) {}
-  rpc GetLocations(GetLocationsRequest) returns (stream GetLocationResponse) {}
+    // Create Location
+    rpc CreateLocation(CreateLocationRequest)   returns (CreateLocationResponse) {}
+    // Update Location
+    rpc UpdateLocation(UpdateLocationRequest)   returns (google.protobuf.Empty) {}
+    // Delete Location
+    rpc DeleteLocation(DeleteLocationRequest)   returns (DeleteLocationResponse) {}
+
+    // Get Location by ID
+    rpc GetLocationByID(GetLocationByIDRequest)       returns (GetLocationByIDResponse) {}
+    // Get Location by name
+    rpc GetLocationByName(GetLocationByNameRequest)   returns (GetLocationByNameResponse) {}
+
+    // List Locations
+    rpc ListLocations(ListLocationsRequest)                           returns (ListLocationsResponse) {}
+    // List Locations by min capacity
+    rpc ListLocationsByMinCapacity(ListLocationsByMinCapacityRequest) returns (ListLocationsByMinCapacityResponse) {}
 }
-
-
-
