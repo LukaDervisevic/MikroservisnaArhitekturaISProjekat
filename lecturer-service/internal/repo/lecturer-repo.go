@@ -9,20 +9,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FILTER TYPES
-// ═══════════════════════════════════════════════════════════════════════════════
-
 type ListLecturersFilter struct {
 	Page             int
 	PageSize         int
 	FieldOfExpertise string
 	Title            string
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// REPO STRUCT
-// ═══════════════════════════════════════════════════════════════════════════════
 
 type LecturerRepo struct {
 	db *gorm.DB
@@ -31,10 +23,6 @@ type LecturerRepo struct {
 func NewLecturerRepo(db *gorm.DB) *LecturerRepo {
 	return &LecturerRepo{db: db}
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// LECTURER
-// ═══════════════════════════════════════════════════════════════════════════════
 
 func (r *LecturerRepo) CreateLecturer(ctx context.Context, lecturer *model.Lecturer) error {
 	return r.db.WithContext(ctx).Create(lecturer).Error

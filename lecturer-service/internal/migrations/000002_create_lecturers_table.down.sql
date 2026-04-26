@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS lecturer_service.lecturers;

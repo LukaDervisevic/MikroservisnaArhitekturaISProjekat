@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"google.golang.org/grpc"
@@ -16,6 +15,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service"
 	lecturerpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer"
+	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
@@ -35,6 +35,8 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	lecturerPort := os.Getenv("LECTURER_SERVICE_PORT")
 
 	switch env {
+	case "local":
+		lecturerUrl = fmt.Sprintf("localhost:%s", lecturerPort)
 	case "dev":
 		lecturerUrl = fmt.Sprintf("lecturer-service:%s", lecturerPort)
 	case "azure":
@@ -43,7 +45,7 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	default:
 		fmt.Printf("Invalid environment on lecturer grpc server")
 	}
-	log.Printf("lecturer url: %s", lecturerUrl)
+	log.Info().Msg(fmt.Sprintf("lecturer gRPC server url: %s", lecturerUrl))
 
 	_, err := grpc.NewClient(lecturerUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

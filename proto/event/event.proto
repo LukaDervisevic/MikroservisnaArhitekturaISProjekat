@@ -24,7 +24,7 @@ message CreateEventRequest {
     string agenda = 3;
     string type = 4;
     google.protobuf.Timestamp date_time = 5;
-    location.Location location = 6;
+    int64 location_id = 6;
 }
 
 message CreateEventResponse {
@@ -42,7 +42,7 @@ message UpdateEventRequest {
     string agenda = 4;
     string type = 5;
     google.protobuf.Timestamp date_time = 6;
-    location.Location location = 7;
+    int64 location_id = 7;
 }
 
 message DeleteEventRequest {

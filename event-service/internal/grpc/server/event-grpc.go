@@ -3,13 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
 	"time"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,31 +26,13 @@ type GrpcServer struct {
 	eventRepo    repo.EventRepo
 	eventService service.EventManagementService
 	eventpb.UnimplementedEventServiceServer
+	locationpb.UnimplementedLocationServiceServer
+	lecturepb.UnimplementedLectureServiceServer
 }
 
 func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	eventRepo := repo.NewEventRepo(db)
 	eventService := service.NewEventManagementService(db, eventRepo)
-
-	env := os.Getenv("ENVIRONMENT")
-	var eventUrl string
-	eventPort := os.Getenv("EVENT_SERVICE_PORT")
-
-	switch env {
-	case "dev":
-		eventUrl = fmt.Sprintf("event-service:%s", eventPort)
-	case "azure":
-		eventAppUrl := os.Getenv("EVENT_CONTAINER_APP_URL")
-		eventUrl = fmt.Sprintf("%s:%s", eventAppUrl, eventPort)
-	default:
-		fmt.Printf("Invalid environment on event grpc server")
-	}
-	log.Printf("event url: %s", eventUrl)
-
-	_, err := grpc.NewClient(eventUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil
-	}
 
 	return &GrpcServer{
 		db:           db,
@@ -234,7 +212,7 @@ func (g *GrpcServer) CreateEvent(ctx context.Context, req *eventpb.CreateEventRe
 		Agenda:          req.Agenda,
 		Type:            req.Type,
 		DateTime:        req.DateTime.GetSeconds(),
-		LocationID:      req.Location.Id,
+		LocationID:      req.LocationId,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
@@ -367,7 +345,7 @@ func (g *GrpcServer) UpdateEvent(ctx context.Context, req *eventpb.UpdateEventRe
 		Agenda:          req.Agenda,
 		Type:            req.Type,
 		DateTime:        req.DateTime.GetSeconds(),
-		LocationID:      req.Location.Id,
+		LocationID:      req.LocationId,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
