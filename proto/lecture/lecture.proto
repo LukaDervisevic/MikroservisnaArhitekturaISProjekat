@@ -4,30 +4,106 @@ package lecture;
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
-
 import "proto/lecturer/lecturer.proto";
 import "proto/event/event.proto";
 
 option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture";
 
 message Lecture {
-    lecturer.Lecturer lecturer = 1;
-    event.Event event = 2;
-    string name = 3;
+    int64 id = 1;
+    lecturer.Lecturer lecturer = 2;
+    event.Event event = 3;
+    string name = 4;
+    google.protobuf.Duration duration = 5;
+}
+
+message CreateLectureRequest {
+    int64 lecturer_id = 1; 
+    int64 event_id    = 2; 
+    string name       = 3;
     google.protobuf.Duration duration = 4;
 }
 
-message LectureName {
-    string name = 1;
+message CreateLectureResponse {
+    Lecture lecture = 1;
 }
 
-message LectureID {
+message GetLectureByIDRequest {
     int64 id = 1;
 }
 
+message GetLectureByIDResponse {
+    Lecture lecture = 1;
+}
+
+message GetLectureByNameRequest {
+    string name = 1;
+}
+
+message GetLectureByNameResponse {
+    Lecture lecture = 1;
+}
+
+message ListLecturesByEventIDRequest {
+    int64 event_id  = 1;
+    int32 page      = 2;
+    int32 page_size = 3;
+}
+
+message ListLecturesByEventIDResponse {
+    repeated Lecture lectures = 1;
+    int32 total_count         = 2;
+    int32 page                = 3;
+    int32 page_size           = 4;
+    bool has_next_page        = 5;
+}
+
+message ListLecturesByLecturerIDRequest {
+    int64 lecturer_id = 1;
+    int32 page        = 2;
+    int32 page_size   = 3;
+}
+
+message ListLecturesByLecturerIDResponse {
+    repeated Lecture lectures = 1;
+    int32 total_count         = 2;
+    int32 page                = 3;
+    int32 page_size           = 4;
+    bool has_next_page        = 5;
+}
+
+message UpdateLectureRequest {
+    int64 id          = 1;
+    int64 lecturer_id = 2; 
+    int64 event_id    = 3; 
+    string name       = 4;
+    google.protobuf.Duration duration = 5;
+}
+
+message DeleteLectureRequest {
+    int64 id = 1; 
+}
+
+message DeleteLectureResponse {
+    Lecture lecture = 1;
+}
+
+// Lecture service
 service LectureService {
-    rpc CreateLecture(Lecture) returns (google.protobuf.Empty) {}
-    rpc GetLectureByName(LectureName) returns (Lecture) {}
-    rpc GetLectureByID(LectureID) returns (Lecture) {}
-    rpc UpdateLecture(Lecture) returns (Lecture) {}
+    // Create lecture
+    rpc CreateLecture(CreateLectureRequest)   returns (CreateLectureResponse) {}
+    // Update lecture
+    rpc UpdateLecture(UpdateLectureRequest)   returns (google.protobuf.Empty) {}
+    // Delete lecture
+    rpc DeleteLecture(DeleteLectureRequest)   returns (DeleteLectureResponse) {}
+
+    // Get lecture by id
+    rpc GetLectureByID(GetLectureByIDRequest)       returns (GetLectureByIDResponse) {}
+    // Get lecture by name
+    rpc GetLectureByName(GetLectureByNameRequest)   returns (GetLectureByNameResponse) {}
+
+    // List lecture by event id
+    rpc ListLecturesByEventID(ListLecturesByEventIDRequest)       returns (ListLecturesByEventIDResponse) {}
+    // List lecture by leturer id
+    rpc ListLecturesByLecturerID(ListLecturesByLecturerIDRequest) returns (ListLecturesByLecturerIDResponse) {}
 }

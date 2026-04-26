@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Event Service",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/event-service/cmd/server/main.go",
+      "cwd": "${workspaceFolder}/event-service",
+      "envFile": "${workspaceFolder}/event-service/.env.local"
+    },
+    {
+      "name": "Debug: Lecturer Service",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/lecturer-service/cmd/server/main.go",
+      "cwd": "${workspaceFolder}/lecturer-service",
+      "envFile": "${workspaceFolder}/lecturer-service/.env.local"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug all",
+      "configurations": [
+        "Debug: Event Service",
+        "Debug: Lecturer Service",
+      ],
+      "stopAll": true
+    }
+  ]
+}

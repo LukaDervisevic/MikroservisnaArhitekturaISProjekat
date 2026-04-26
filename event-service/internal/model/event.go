@@ -8,5 +8,5 @@ type Event struct {
 	Type            string
 	DateTime        int64
 	LocationID      int64
-	Location        *Location `gorm:"foreignKey:IdLokacije;references:Id"`
+	Location        *Location `gorm:"foreignKey:LocationID;references:Id"`
 }
