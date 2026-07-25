@@ -1,32 +1,4 @@
 services:
-  event-service:
-    container_name: event-service
-    build:
-      context: ./
-      dockerfile: ./event-service/Dockerfile
-    depends_on:
-      - mais-db
-    ports:
-      - "50054:50054"
-    env_file:
-      - ./event-service/.env.local
-    networks:
-      - mais-backend
-
-  lecturer-service:
-    container_name: lecturer-service
-    build:
-      context: ./
-      dockerfile: ./lecturer-service/Dockerfile
-    depends_on:
-      - mais-db
-    ports:
-      - "50055:50055"
-    env_file:
-      - ./lecturer-service/.env.local
-    networks:
-      - mais-backend
-  
   mais-db:
     container_name: mais-db
     image: postgres:17.7-alpine
@@ -40,14 +12,61 @@ services:
     networks:
       - mais-backend
     healthcheck:
-      test: ["CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db"]
+      test: [ "CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db" ]
       interval: 5s
       timeout: 10s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:4.3.4
+    container_name: rabbitmq_broker
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    env_file:
+      - '.env.compose'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_log:/var/log/rabbitmq
+    # TODO: add healthcheck
+
+  event-service:
+    container_name: event-service
+    build:
+      context: ./
+      dockerfile: ./event-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50054:50054"
+    env_file:
+      - ./event-service/.env.local
+    networks:
+      - mais-backend
+
+  lecturer-service:
+    container_name: lecturer-service
+    build:
+      context: ./
+      dockerfile: ./lecturer-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50055:50055"
+    env_file:
+      - ./lecturer-service/.env.local
+    networks:
+      - mais-backend
+
 volumes:
   postgres_data:
+  rabbitmq_data:
+  rabbitmq_log:
 
 networks:
   mais-backend:
     driver: bridge
+
