@@ -45,7 +45,6 @@ func Connect() *gorm.DB {
 		if err == nil {
 			break
 		}
-		log.Info().Msgf(os.Getwd())
 		log.Info().Err(err).Msgf("Attempt %d: DB not ready, retrying...", i+1)
 		time.Sleep(2 * time.Second)
 	}

@@ -46,10 +46,10 @@ func (s *Scheduler) Start() {
 					select {
 					case err := <-done:
 						if err != nil {
-							log.Warn().Msgf("Worker %s failed task %s", i, task.ID.String())
+							log.Warn().Msgf("Worker %d failed task %s", i, task.ID.String())
 						}
 					case <-ctx.Done():
-						log.Warn().Msgf("Worker %s timeout on task %s", i, task.ID.String())
+						log.Warn().Msgf("Worker %d timeout on task %s", i, task.ID.String())
 					}
 				case <-s.stop:
 					return
