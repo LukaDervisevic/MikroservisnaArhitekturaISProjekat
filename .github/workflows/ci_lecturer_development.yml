@@ -2,7 +2,7 @@ name: ci_lecturer_development.yml
 on:
   pull_request:
     paths:
-      - './lecturer-service/**'
+      - 'lecturer-service/**'
     branches:
       - 'development'
 
