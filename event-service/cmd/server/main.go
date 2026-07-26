@@ -12,6 +12,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
@@ -58,7 +59,8 @@ func main() {
 
 	go func(brokerURI string, queue string) {
 		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
-		serverConn := rabbitmq.NewBrokerServerConn[model.Lecturer](ctx, brokerURI, nil)
+		lecturerRepo := repo.NewLecturerRepo(conn)
+		serverConn := rabbitmq.NewBrokerServerConn[model.Lecturer](ctx, brokerURI, nil, conn, lecturerRepo)
 		_, err = serverConn.Connection.Management().DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queue})
 		if err != nil {
 			log.Error().Msgf("Failed to declare a queue: %v", err)

@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/grpc/server"
@@ -35,7 +34,8 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	lecturer.RegisterLecturerServiceServer(grpcServer, server.NewGrpcServer(conn))
+	lecturerServer := server.NewGrpcServer(ctx, conn)
+	lecturer.RegisterLecturerServiceServer(grpcServer, lecturerServer)
 
 	go func() {
 		log.Printf("starting lecturer service grpc server on port %v...", port)
@@ -45,26 +45,25 @@ func main() {
 		}
 	}()
 
-	var clientConn *rabbitmq.BrokerClientConn
-
-	go func(brokerURI string, queue string, replyQueue string) {
-		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
-		clientConn = rabbitmq.NewRabbitMQClientConn(ctx, brokerURI, nil)
-		clientConn.NewQueueRequester(ctx, clientConn.Connection, queue, replyQueue)
-	}(
-		os.Getenv("RABBITMQ_BROKER_URI"),
-		os.Getenv("RABBITMQ_LECTURER_QUEUE"),
-		os.Getenv("RABBITMQ_LECTURER_REPLY_QUEUE"),
-	)
-
+	/*
+		go func(brokerURI string, queue string, replyQueue string) {
+			log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
+			clientConn = rabbitmq.NewRabbitMQClientConn(ctx, brokerURI, nil)
+			clientConn.NewQueueRequester(ctx, clientConn.Connection, queue)
+		}(
+			os.Getenv("RABBITMQ_BROKER_URI"),
+			os.Getenv("RABBITMQ_LECTURER_QUEUE"),
+			os.Getenv("RABBITMQ_LECTURER_REPLY_QUEUE"),
+		)
+	*/
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
 	log.Info().Msgf("shutting down rabbitmq lecturer client...")
-	defer func() { _ = clientConn.Environment.CloseConnections(ctx) }()
-	defer func() { _ = clientConn.Requester.Close(ctx) }()
-	defer func() { _ = clientConn.Connection.Close(ctx) }()
+	defer func() { _ = lecturerServer.BrokerConn.Environment.CloseConnections(ctx) }()
+	defer func() { _ = lecturerServer.BrokerConn.Requester.Close(ctx) }()
+	defer func() { _ = lecturerServer.BrokerConn.Connection.Close(ctx) }()
 	log.Info().Msgf("successfully shut down rabbitmq connection")
 
 	log.Info().Msg("Shutting down lecturer gRPC server...")

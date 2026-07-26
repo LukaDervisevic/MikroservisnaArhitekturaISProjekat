@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
@@ -35,13 +36,23 @@ func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *r
 	}
 }
 
-func (b *BrokerClientConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string, queueToName string) {
+func (b *BrokerClientConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
 	if conn == nil {
 		return
 	}
-	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName, ReplyToQueueName: queueToName})
+	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
 	if err != nil {
 		return
 	}
 	b.Requester = requester
+}
+
+func (b *BrokerClientConn) Publish(ctx context.Context, body []byte) error {
+	if b == nil || b.Requester == nil {
+		return fmt.Errorf("rabbitmq requester is not initialized")
+	}
+
+	msg := rmq.NewMessage(body)
+	_, err := b.Requester.Publish(ctx, msg)
+	return err
 }

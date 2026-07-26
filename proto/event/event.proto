@@ -32,7 +32,7 @@ message CreateEventResponse {
 }
 
 message GetEventByIdRequest {
-    int64 id = 1; // fixed: was string, should be int64 to match your model
+    int64 id = 1;
 }
 
 message UpdateEventRequest {

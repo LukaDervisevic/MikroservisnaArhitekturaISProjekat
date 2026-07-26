@@ -7,9 +7,12 @@ import (
 	"sync"
 
 	"github.com/Azure/go-amqp"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
 	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 type Message[B any] struct {
@@ -24,9 +27,15 @@ type BrokerServerConn[B any] struct {
 	Environment     *rmq.Environment
 	Connection      *rmq.AmqpConnection
 	Responder       rmq.Responder
+	db              *gorm.DB
+	lecturerRepo    *repo.LecturerRepo
 }
 
-func NewBrokerServerConn[B any](ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) *BrokerServerConn[B] {
+func NewBrokerServerConn[B any](ctx context.Context,
+	brokerURI string,
+	connOptions *rmq.AmqpConnOptions,
+	db *gorm.DB,
+	lecturerRepo *repo.LecturerRepo) *BrokerServerConn[B] {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -40,6 +49,8 @@ func NewBrokerServerConn[B any](ctx context.Context, brokerURI string, connOptio
 		Mutex:           lock,
 		Environment:     env,
 		Connection:      conn,
+		db:              db,
+		lecturerRepo:    lecturerRepo,
 	}
 }
 
@@ -49,34 +60,73 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 	}
 	responder, err := conn.NewResponder(ctx, rmq.ResponderOptions{
 		RequestQueue: queueName,
-		Handler: func(_ context.Context, request *amqp.Message) (*amqp.Message, error) {
+		Handler: func(handlerCtx context.Context, request *amqp.Message) (*amqp.Message, error) {
 			var payload []byte
 			if len(request.Data) > 0 {
 				payload = request.Data[0]
 			}
-			var message Message[B]
-			err := json.Unmarshal(payload, &message)
+
+			var message Message[model.Lecturer]
+			if err := json.Unmarshal(payload, &message); err != nil {
+				log.Error().Err(err).Msg("failed to unmarshal message payload")
+				return nil, err
+			}
+
+			log.Info().Msgf("received message with id {%s}", message.IdempotentKey.String())
+
+			b.Mutex.RLock()
+			_, consumed := b.IdempotencyRepo[message.IdempotentKey]
+			b.Mutex.RUnlock()
+			if consumed {
+				log.Error().Msgf("message with id {%s} has already been consumed", message.IdempotentKey.String())
+				return nil, fmt.Errorf("message with id {%s} has already been consumed", message.IdempotentKey.String())
+			}
+
+			err := b.db.WithContext(handlerCtx).Transaction(func(tx *gorm.DB) error {
+				txRepo := b.lecturerRepo.WithTx(tx)
+
+				switch message.Method {
+				case "CreateLecturer":
+					if err := txRepo.CreateLecturer(handlerCtx, &message.Body); err != nil {
+						log.Error().Err(err).Msgf("failed to create lecturer in tx for msg %s", message.IdempotentKey)
+						return err
+					}
+				case "UpdateLecturer":
+					if err := txRepo.UpdateLecturer(handlerCtx, &message.Body); err != nil {
+						log.Error().Err(err).Msgf("failed to update lecturer in tx for msg %s", message.IdempotentKey)
+						return err
+					}
+				case "DeleteLecturer":
+					if err := txRepo.DeleteLecturer(handlerCtx, message.Body.Id); err != nil {
+						log.Error().Err(err).Msgf("failed to delete lecturer in tx for msg %s", message.IdempotentKey)
+						return err
+					}
+				default:
+					return fmt.Errorf("unknown method type: %s", message.Method)
+				}
+
+				return nil
+			})
+
+			// Rollback
 			if err != nil {
 				return nil, err
 			}
-			log.Info().Msgf("received message with id {%s}", message.IdempotentKey.String())
-			b.Mutex.RLock()
-			_, ok := b.IdempotencyRepo[message.IdempotentKey]
-			b.Mutex.RUnlock()
-			if ok {
-				log.Error().Msgf("recieved message with id {%s} has already been consumed", message.IdempotentKey.String())
-				return nil, fmt.Errorf("sent message with id {%s} has already been consumed", message.IdempotentKey.String())
-			}
+
 			b.Mutex.Lock()
-			log.Info().Msgf("message with id {%s} added to idempotent repository", message.IdempotentKey.String())
-			b.IdempotencyRepo[message.IdempotentKey] = message
+			var rawMsg Message[B]
+			_ = json.Unmarshal(payload, &rawMsg)
+			b.IdempotencyRepo[message.IdempotentKey] = rawMsg
 			b.Mutex.Unlock()
 
+			log.Info().Msgf("successfully processed method %s for message id {%s}", message.Method, message.IdempotentKey.String())
 			return nil, nil
 		},
 	})
+
 	if err != nil {
 		log.Error().Msgf("failed to create a new responder for queue %s", queueName)
+		return
 	}
 	b.Responder = responder
 }

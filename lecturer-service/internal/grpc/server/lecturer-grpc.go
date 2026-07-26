@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/scheduler"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,6 +28,9 @@ type GrpcServer struct {
 	lecturerRepo    repo.LecturerRepo
 	lecturerService service.LecturerService
 	lecturerpb.UnimplementedLecturerServiceServer
+	BrokerConn      rabbitmq.BrokerClientConn
+	scheduler       *scheduler.Scheduler
+	outboxProcessor *service.OutboxProcessor
 }
 
 var maxTries = 5
@@ -38,10 +43,25 @@ func isRetriable(grpcCode codes.Code) bool {
 		grpcCode != codes.PermissionDenied
 }
 
-func NewGrpcServer(db *gorm.DB) *GrpcServer {
+func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	lecturerRepo := repo.NewLecturerRepo(db)
 	outboxRepo := repo.NewOutboxRepo(db)
 	lecturerService := service.NewLecturerService(db, lecturerRepo, outboxRepo)
+
+	var lecturerBrokerConn *rabbitmq.BrokerClientConn
+	var lecturerScheduler *scheduler.Scheduler
+	sendQueue := os.Getenv("RABBITMQ_LECTURER_QUEUE")
+
+	lecturerBrokerConn = rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
+	if lecturerBrokerConn == nil {
+		log.Fatal().Msg("unable to connect to create rabbitmq connection")
+	} else {
+		lecturerBrokerConn.NewQueueRequester(ctx, lecturerBrokerConn.Connection, sendQueue)
+		lecturerScheduler = scheduler.NewScheduler(10, 100)
+	}
+
+	outboxProcessor := service.NewOutboxProcessor(db, outboxRepo, lecturerBrokerConn)
+	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
 	env := os.Getenv("ENVIRONMENT")
 	var lecturerUrl string
@@ -59,11 +79,6 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 		fmt.Printf("Invalid environment on lecturer grpc server")
 	}
 	log.Info().Msg(fmt.Sprintf("lecturer gRPC server url: %s", lecturerUrl))
-
-	//_, err := grpc.NewClient(lecturerUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	//if err != nil {
-	//	return nil
-	//}
 
 	var loggerInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		err := invoker(ctx, method, req, reply, cc, opts...)
@@ -108,11 +123,18 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	grpc.WithChainUnaryInterceptor(retryInterceptor)
 	grpc.WithChainUnaryInterceptor(timeoutInterceptor)
 
-	return &GrpcServer{
+	grpcServer := &GrpcServer{
 		db:              db,
 		lecturerRepo:    *lecturerRepo,
 		lecturerService: *lecturerService,
+		scheduler:       lecturerScheduler,
+		outboxProcessor: outboxProcessor,
 	}
+	if lecturerBrokerConn != nil {
+		grpcServer.BrokerConn = *lecturerBrokerConn
+	}
+
+	return grpcServer
 }
 
 func (g *GrpcServer) CreateLecturer(ctx context.Context, req *lecturerpb.CreateLecturerRequest) (*lecturerpb.CreateLecturerResponse, error) {

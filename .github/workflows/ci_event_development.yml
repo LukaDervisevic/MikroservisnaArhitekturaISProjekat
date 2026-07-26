@@ -5,6 +5,11 @@ on:
       - 'event-service/**'
     branches:
       - 'development'
+  push:
+    paths:
+      - 'event-service/**'
+    branches:
+      - 'development'
 
 jobs:
   build-and-test:

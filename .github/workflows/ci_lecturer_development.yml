@@ -5,6 +5,11 @@ on:
       - 'lecturer-service/**'
     branches:
       - 'development'
+  push:
+    paths:
+      - 'lecturer-service/**'
+    branches:
+      - 'development'
 
 jobs:
   build-and-test:

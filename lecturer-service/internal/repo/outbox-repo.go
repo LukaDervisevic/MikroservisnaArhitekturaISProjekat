@@ -47,3 +47,21 @@ func (r *OutboxRepo) StashMessage(ctx context.Context, message rabbitmq.Message[
 	}
 	return r.db.WithContext(ctx).Create(outbox).Error
 }
+
+func (r *OutboxRepo) GetStashedMessages(ctx context.Context, limit int) ([]model.Outbox, error) {
+	var outboxMessages []model.Outbox
+	err := r.db.WithContext(ctx).
+		Where("status = ?", StatusStashed).
+		Order("timestamp ASC").
+		Limit(limit).
+		Find(&outboxMessages).Error
+
+	return outboxMessages, err
+}
+
+func (r *OutboxRepo) MarkAsSent(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Outbox{}).
+		Where("id = ?", id).
+		Update("status", StatusSent).Error
+}
