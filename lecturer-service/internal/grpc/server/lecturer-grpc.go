@@ -10,7 +10,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -41,7 +40,8 @@ func isRetriable(grpcCode codes.Code) bool {
 
 func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	lecturerRepo := repo.NewLecturerRepo(db)
-	lecturerService := service.NewLecturerService(db, lecturerRepo)
+	outboxRepo := repo.NewOutboxRepo(db)
+	lecturerService := service.NewLecturerService(db, lecturerRepo, outboxRepo)
 
 	env := os.Getenv("ENVIRONMENT")
 	var lecturerUrl string
@@ -60,10 +60,10 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	}
 	log.Info().Msg(fmt.Sprintf("lecturer gRPC server url: %s", lecturerUrl))
 
-	_, err := grpc.NewClient(lecturerUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil
-	}
+	//_, err := grpc.NewClient(lecturerUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	//if err != nil {
+	//	return nil
+	//}
 
 	var loggerInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		err := invoker(ctx, method, req, reply, cc, opts...)

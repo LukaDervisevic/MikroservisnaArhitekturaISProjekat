@@ -3,8 +3,11 @@ package service
 import (
 	"context"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -12,10 +15,11 @@ import (
 
 type LecturerService struct {
 	lecturerRepo *repo.LecturerRepo
+	outboxRepo   *repo.OutboxRepo
 	db           *gorm.DB
 }
 
-func NewLecturerService(db *gorm.DB, lecturerRepo *repo.LecturerRepo) *LecturerService {
+func NewLecturerService(db *gorm.DB, lecturerRepo *repo.LecturerRepo, outboxRepo *repo.OutboxRepo) *LecturerService {
 	return &LecturerService{
 		lecturerRepo: lecturerRepo,
 		db:           db,
@@ -60,9 +64,28 @@ func (s *LecturerService) CreateLecturer(ctx context.Context, input *CreateLectu
 		Title:            input.Title,
 		FieldOfExpertise: input.FieldOfExpertise,
 	}
-	if err := s.lecturerRepo.CreateLecturer(ctx, lecturer); err != nil {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := s.lecturerRepo.WithTx(tx).CreateLecturer(ctx, lecturer); err != nil {
+			return err
+		}
+
+		outboxMsg := rabbitmq.Message[interface{}]{
+			IdempotentKey: uuid.New(),
+			Body:          *lecturer,
+			Method:        "CreateLecturer",
+		}
+
+		if err := s.outboxRepo.WithTx(tx).StashMessage(ctx, outboxMsg); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create lecturer and outbox event")
 		return nil, status.Error(codes.Internal, "failed to create lecturer")
 	}
+
 	return lecturer, nil
 }
 

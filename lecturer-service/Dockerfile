@@ -12,8 +12,9 @@ RUN chmod +x ./main
 FROM alpine:3.20
 WORKDIR /lecturer-docker
 
-COPY  --from=builder /lecturer-docker/main . 
-COPY --from=builder /lecturer-docker/lecturer-service/internal/migrations /lecturer-docker/lecturer-service/internal/migrations
+COPY  --from=builder /lecturer-docker/main .
+COPY --from=builder /lecturer-docker/lecturer-service/internal/migrations /lecturer-docker/internal/migrations
+COPY --from=builder /lecturer-docker/lecturer-service/.env.docker /lecturer-docker/lecturer-service/.env.docker
 
 
 EXPOSE 50054

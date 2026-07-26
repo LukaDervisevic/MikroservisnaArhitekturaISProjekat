@@ -31,6 +31,32 @@ services:
       - rabbitmq_log:/var/log/rabbitmq
     # TODO: add healthcheck
 
+  apisix:
+    image: apache/apisix:${APISIX_IMAGE_TAG:-3.14.1-debian}
+    restart: always
+    container_name: api_gateway
+    volumes:
+      - ./api-gateway/apisix/config.yml:/usr/local/apisix/conf/config.yml:ro
+    depends_on:
+      - etcd
+    ports:
+      - "9180:9180/tcp"  # Admin API
+      - "9080:9080/tcp"  # HTTP traffic
+      - "9091:9091/tcp"  # Prometheus metrics
+      - "9443:9443/tcp"  # HTTPS traffic
+      - "9092:9092/tcp"  # Control API
+
+  etcd:
+    image: bitnamilegacy/etcd:3.5.11
+    restart: always
+    volumes:
+      - etcd_data:/bitnami/etcd
+    environment:
+      ETCD_ENABLE_V2: "true"
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+
   event-service:
     container_name: event-service
     build:
@@ -42,7 +68,7 @@ services:
     ports:
       - "50054:50054"
     env_file:
-      - ./event-service/.env.local
+      - ./event-service/.env.docker
     networks:
       - mais-backend
 
@@ -57,7 +83,7 @@ services:
     ports:
       - "50055:50055"
     env_file:
-      - ./lecturer-service/.env.local
+      - ./lecturer-service/.env.docker
     networks:
       - mais-backend
 
@@ -65,6 +91,7 @@ volumes:
   postgres_data:
   rabbitmq_data:
   rabbitmq_log:
+  etcd_data:
 
 networks:
   mais-backend:

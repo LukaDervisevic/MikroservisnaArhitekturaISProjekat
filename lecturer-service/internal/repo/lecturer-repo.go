@@ -24,6 +24,13 @@ func NewLecturerRepo(db *gorm.DB) *LecturerRepo {
 	return &LecturerRepo{db: db}
 }
 
+func (r *LecturerRepo) WithTx(tx *gorm.DB) *LecturerRepo {
+	if tx == nil {
+		return r
+	}
+	return &LecturerRepo{db: tx}
+}
+
 func (r *LecturerRepo) CreateLecturer(ctx context.Context, lecturer *model.Lecturer) error {
 	return r.db.WithContext(ctx).Create(lecturer).Error
 }

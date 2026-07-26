@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/grpc/server"
@@ -17,7 +18,7 @@ import (
 
 func main() {
 
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err := config.LoadEnv(); err != nil {
@@ -37,18 +38,36 @@ func main() {
 	lecturer.RegisterLecturerServiceServer(grpcServer, server.NewGrpcServer(conn))
 
 	go func() {
-		log.Printf("starting user service grpc server on port %v...", port)
+		log.Printf("starting lecturer service grpc server on port %v...", port)
 		if err := grpcServer.Serve(listener); err != nil {
 			log.Fatal().Err(err).Msg("failed to server grpc request")
 			cancel()
 		}
 	}()
 
+	var clientConn *rabbitmq.BrokerClientConn
+
+	go func(brokerURI string, queue string, replyQueue string) {
+		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
+		clientConn = rabbitmq.NewRabbitMQClientConn(ctx, brokerURI, nil)
+		clientConn.NewQueueRequester(ctx, clientConn.Connection, queue, replyQueue)
+	}(
+		os.Getenv("RABBITMQ_BROKER_URI"),
+		os.Getenv("RABBITMQ_LECTURER_QUEUE"),
+		os.Getenv("RABBITMQ_LECTURER_REPLY_QUEUE"),
+	)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	log.Info().Msg("Shutting down lectuer gRPC server...")
+	log.Info().Msgf("shutting down rabbitmq lecturer client...")
+	defer func() { _ = clientConn.Environment.CloseConnections(ctx) }()
+	defer func() { _ = clientConn.Requester.Close(ctx) }()
+	defer func() { _ = clientConn.Connection.Close(ctx) }()
+	log.Info().Msgf("successfully shut down rabbitmq connection")
+
+	log.Info().Msg("Shutting down lecturer gRPC server...")
 	grpcServer.GracefulStop()
 	log.Info().Msg("Lecturer gRPC server stopped.")
 
