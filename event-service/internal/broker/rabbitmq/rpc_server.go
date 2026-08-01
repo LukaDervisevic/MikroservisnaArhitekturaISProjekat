@@ -28,14 +28,14 @@ type BrokerServerConn[B any] struct {
 	Connection      *rmq.AmqpConnection
 	Responder       rmq.Responder
 	db              *gorm.DB
-	lecturerRepo    *repo.LecturerRepo
+	lecturerRepo    *repo.IEventCommandRepo
 }
 
 func NewBrokerServerConn[B any](ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	lecturerRepo *repo.LecturerRepo) *BrokerServerConn[B] {
+	lecturerRepo *repo.IEventCommandRepo) *BrokerServerConn[B] {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -66,7 +66,7 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 				payload = request.Data[0]
 			}
 
-			var message Message[model.Lecturer]
+			var message Message[model.Event]
 			if err := json.Unmarshal(payload, &message); err != nil {
 				log.Error().Err(err).Msg("failed to unmarshal message payload")
 				return nil, err
@@ -82,36 +82,36 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 				return nil, fmt.Errorf("message with id {%s} has already been consumed", message.IdempotentKey.String())
 			}
 
-			err := b.db.WithContext(handlerCtx).Transaction(func(tx *gorm.DB) error {
-				txRepo := b.lecturerRepo.WithTx(tx)
-
-				switch message.Method {
-				case "CreateLecturer":
-					if err := txRepo.CreateLecturer(handlerCtx, &message.Body); err != nil {
-						log.Error().Err(err).Msgf("failed to create lecturer in tx for msg %s", message.IdempotentKey)
-						return err
-					}
-				case "UpdateLecturer":
-					if err := txRepo.UpdateLecturer(handlerCtx, &message.Body); err != nil {
-						log.Error().Err(err).Msgf("failed to update lecturer in tx for msg %s", message.IdempotentKey)
-						return err
-					}
-				case "DeleteLecturer":
-					if err := txRepo.DeleteLecturer(handlerCtx, message.Body.Id); err != nil {
-						log.Error().Err(err).Msgf("failed to delete lecturer in tx for msg %s", message.IdempotentKey)
-						return err
-					}
-				default:
-					return fmt.Errorf("unknown method type: %s", message.Method)
-				}
-
-				return nil
-			})
-
-			// Rollback
-			if err != nil {
-				return nil, err
-			}
+			//err := b.db.WithContext(handlerCtx).Transaction(func(tx *gorm.DB) error {
+			//	txRepo := b.lecturerRepo.WithTx(tx)
+			//
+			//	switch message.Method {
+			//	case "CreateLecturer":
+			//		if err := txRepo.CreateLecturer(handlerCtx, &message.Body); err != nil {
+			//			log.Error().Err(err).Msgf("failed to create lecturer in tx for msg %s", message.IdempotentKey)
+			//			return err
+			//		}
+			//	case "UpdateLecturer":
+			//		if err := txRepo.UpdateLecturer(handlerCtx, &message.Body); err != nil {
+			//			log.Error().Err(err).Msgf("failed to update lecturer in tx for msg %s", message.IdempotentKey)
+			//			return err
+			//		}
+			//	case "DeleteLecturer":
+			//		if err := txRepo.DeleteLecturer(handlerCtx, message.Body.Id); err != nil {
+			//			log.Error().Err(err).Msgf("failed to delete lecturer in tx for msg %s", message.IdempotentKey)
+			//			return err
+			//		}
+			//	default:
+			//		return fmt.Errorf("unknown method type: %s", message.Method)
+			//	}
+			//
+			//	return nil
+			//})
+			//
+			//// Rollback
+			//if err != nil {
+			//	return nil, err
+			//}
 
 			b.Mutex.Lock()
 			var rawMsg Message[B]

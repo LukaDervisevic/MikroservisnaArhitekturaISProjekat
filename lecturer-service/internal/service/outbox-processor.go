@@ -59,7 +59,7 @@ func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 
 	for _, record := range stashed {
 		pubCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := p.brokerConn.Publish(pubCtx, record.Payload)
+		err := p.brokerConn.Publish(pubCtx, record.Payload, true)
 		cancel()
 
 		if err != nil {

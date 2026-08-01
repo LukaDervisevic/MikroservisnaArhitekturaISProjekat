@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Azure/go-amqp"
 	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
@@ -47,12 +48,13 @@ func (b *BrokerClientConn) NewQueueRequester(ctx context.Context, conn *rmq.Amqp
 	b.Requester = requester
 }
 
-func (b *BrokerClientConn) Publish(ctx context.Context, body []byte) error {
+func (b *BrokerClientConn) Publish(ctx context.Context, body []byte, durable bool) error {
 	if b == nil || b.Requester == nil {
 		return fmt.Errorf("rabbitmq requester is not initialized")
 	}
 
 	msg := rmq.NewMessage(body)
+	msg.Header = &amqp.MessageHeader{Durable: durable}
 	_, err := b.Requester.Publish(ctx, msg)
 	return err
 }

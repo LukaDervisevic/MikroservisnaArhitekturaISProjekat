@@ -11,17 +11,17 @@ import (
 )
 
 type EventManagementService struct {
-	eventRepo *repo.EventRepo
-	db        *gorm.DB
+	eventWriteRepo *repo.IEventCommandRepo
+	db             *gorm.DB
 }
 
 func NewEventManagementService(
 	db *gorm.DB,
-	eventRepo *repo.EventRepo,
+	eventWriteRepo *repo.IEventCommandRepo,
 ) *EventManagementService {
 	return &EventManagementService{
-		eventRepo: eventRepo,
-		db:        db,
+		eventWriteRepo: eventWriteRepo,
+		db:             db,
 	}
 }
 

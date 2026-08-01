@@ -12,13 +12,14 @@ services:
     networks:
       - mais-backend
     healthcheck:
-      test: [ "CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db" ]
+      test: [ "CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db
+      && pg_isready -U $POSTGRES_USER -d lecture_service_db" ]
       interval: 5s
       timeout: 10s
       retries: 5
 
   rabbitmq:
-    image: rabbitmq:4.3.4
+    image: rabbitmq:4.3.4-management
     container_name: rabbitmq_broker
     restart: always
     ports:
@@ -29,6 +30,18 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - rabbitmq_log:/var/log/rabbitmq
+      - type: bind
+        source: ./rabbitmq/config/rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+      - type: bind
+        source: ./rabbitmq/config/definitions_test.json
+        target: /etc/rabbitmq/definitions.json
+
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: pass1234
+      RABBITMQ_LOAD_DEFINITIONS: "/etc/rabbitmq/definitions_test.json"
+
     # TODO: add healthcheck
 
   apisix:
@@ -84,6 +97,21 @@ services:
       - "50055:50055"
     env_file:
       - ./lecturer-service/.env.docker
+    networks:
+      - mais-backend
+
+  lecture-service:
+    container_name: lecture-service
+    build:
+      context: ./
+      dockerfile: ./lecture-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50056:50056"
+    env_file:
+      - ./lecture-service/.env.docker
     networks:
       - mais-backend
 

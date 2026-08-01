@@ -1,0 +1,41 @@
+{
+  "rabbit_version": "4.3.4",
+  "users": [
+    { "name": "admin", "password": "pass1234", "tags": ["administrator"] }
+  ],
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "permissions": [
+    { "user": "admin", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" }
+  ],
+  "exchanges": [
+    { "name": "lecturer.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
+  ],
+  "queues": [
+    { "name": "lecturer","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
+    { "name": "lecturer.retry","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
+    { "name": "lecturer.final-dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "mail", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} }
+  ],
+  "bindings": [
+    {
+      "source": "lecturer.dlx",
+      "vhost": "/",
+      "destination": "lecturer.final-dlq",
+      "destination_type": "queue",
+      "routing_key": "",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "name": "DLX",
+      "vhost": "/",
+      "pattern": "^lecturer\\.main$",
+      "apply-to": "queues",
+      "definition": { "dead-letter-exchange": "lecturer.dlx" },
+      "priority": 0
+    }
+  ]
+}
