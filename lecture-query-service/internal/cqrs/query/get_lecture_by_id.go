@@ -3,8 +3,8 @@ package query
 import (
 	"context"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/repo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -21,14 +21,14 @@ func (q GetLectureByIDQuery) Validate() error {
 }
 
 type GetLectureByIDHandler struct {
-	lectureRepo repo.ILectureRepo
+	lectureRepo repo.ILectureQueryRepo
 }
 
-func NewGetLectureByIDHandler(lectureRepo repo.ILectureRepo) *GetLectureByIDHandler {
+func NewGetLectureByIDHandler(lectureRepo repo.ILectureQueryRepo) *GetLectureByIDHandler {
 	return &GetLectureByIDHandler{lectureRepo: lectureRepo}
 }
 
-func (h *GetLectureByIDHandler) Handle(ctx context.Context, q GetLectureByIDQuery) (*model.Lecture, error) {
+func (h *GetLectureByIDHandler) Handle(ctx context.Context, q GetLectureByIDQuery) (*model.LectureQuery, error) {
 	if err := q.Validate(); err != nil {
 		return nil, err
 	}

@@ -45,6 +45,9 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	locationRepo := repo.NewLocationRepo(db)
 	// TODO: fix
 	queryBroker := rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
+	if queryBroker != nil {
+		queryBroker.NewQueueRequester(ctx, queryBroker.Connection, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"))
+	}
 
 	return &GrpcServer{
 		db: db,

@@ -7,9 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/grpc/server"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -17,7 +20,7 @@ import (
 
 func main() {
 
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err := config.LoadEnv(); err != nil {
@@ -47,27 +50,27 @@ func main() {
 		}
 	}()
 
-	//var serverConn rabbitmq.BrokerServerConn[model.EventWithLocation]
-	//
-	//go func(brokerURI string, queue string) {
-	//	log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
-	//	lecturerRepo := repo.NewLecturerRepo(conn)
-	//	serverConn := rabbitmq.NewBrokerServerConn[model.EventWithLocation](ctx, brokerURI, nil, conn, lecturerRepo)
-	//
-	//	serverConn.NewQueueResponder(ctx, serverConn.Connection, queue)
-	//
-	//}(
-	//	os.Getenv("RABBITMQ_BROKER_URI"),
-	//	os.Getenv("RABBITMQ_LECTURER_QUEUE"),
-	//)
+	var serverConn rabbitmq.BrokerServerConn[model.EventWithLocation]
+
+	go func(brokerURI string, queue string) {
+		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
+		eventQueryRepo := repo.NewEventRepo(conn)
+		serverConn := rabbitmq.NewBrokerServerConn[model.EventWithLocation](ctx, brokerURI, nil, conn, eventQueryRepo)
+
+		serverConn.NewQueueResponder(ctx, serverConn.Connection, queue)
+
+	}(
+		os.Getenv("RABBITMQ_BROKER_URI"),
+		os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"),
+	)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	//defer func() { _ = serverConn.Environment.CloseConnections(ctx) }()
-	//defer func() { _ = serverConn.Responder.Close(ctx) }()
-	//defer func() { _ = serverConn.Connection.Close(ctx) }()
+	defer func() { _ = serverConn.Environment.CloseConnections(ctx) }()
+	defer func() { _ = serverConn.Responder.Close(ctx) }()
+	defer func() { _ = serverConn.Connection.Close(ctx) }()
 
 	log.Info().Msg("Shutting down lectuer gRPC server...")
 	grpcServer.GracefulStop()

@@ -13,6 +13,7 @@ type ILecturerWriteRepo interface {
 	CreateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	UpdateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	DeleteLecturer(ctx context.Context, id int64) error
+	WithTx(tx *gorm.DB) *LecturerRepo
 }
 
 type ILecturerReadRepo interface {

@@ -22,20 +22,20 @@ type Message[B any] struct {
 }
 
 type BrokerServerConn[B any] struct {
-	IdempotencyRepo map[uuid.UUID]Message[B]
-	Mutex           *sync.RWMutex
-	Environment     *rmq.Environment
-	Connection      *rmq.AmqpConnection
-	Responder       rmq.Responder
-	db              *gorm.DB
-	lecturerRepo    *repo.IEventCommandRepo
+	IdempotencyRepo  map[uuid.UUID]Message[B]
+	Mutex            *sync.RWMutex
+	Environment      *rmq.Environment
+	Connection       *rmq.AmqpConnection
+	Responder        rmq.Responder
+	db               *gorm.DB
+	eventCommandRepo repo.IEventCommandRepo
 }
 
 func NewBrokerServerConn[B any](ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	lecturerRepo *repo.IEventCommandRepo) *BrokerServerConn[B] {
+	eventCommandRepo repo.IEventCommandRepo) *BrokerServerConn[B] {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
@@ -45,12 +45,12 @@ func NewBrokerServerConn[B any](ctx context.Context,
 	lock := &sync.RWMutex{}
 
 	return &BrokerServerConn[B]{
-		IdempotencyRepo: idempotentMap,
-		Mutex:           lock,
-		Environment:     env,
-		Connection:      conn,
-		db:              db,
-		lecturerRepo:    lecturerRepo,
+		IdempotencyRepo:  idempotentMap,
+		Mutex:            lock,
+		Environment:      env,
+		Connection:       conn,
+		db:               db,
+		eventCommandRepo: eventCommandRepo,
 	}
 }
 
@@ -83,7 +83,7 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 			}
 
 			//err := b.db.WithContext(handlerCtx).Transaction(func(tx *gorm.DB) error {
-			//	txRepo := b.lecturerRepo.WithTx(tx)
+			//	txRepo := b.eventCommandRepo.WithTx(tx)
 			//
 			//	switch message.Method {
 			//	case "CreateLecturer":

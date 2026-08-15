@@ -3,8 +3,8 @@ package query
 import (
 	"context"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/repo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,14 +26,14 @@ func (q ListLecturesByLecturerIDQuery) Validate() error {
 }
 
 type ListLecturesByLecturerIDHandler struct {
-	lectureRepo repo.ILectureReadRepo
+	lectureRepo repo.ILectureQueryRepo
 }
 
-func NewListLecturesByLecturerIDHandler(lectureRepo repo.ILectureReadRepo) *ListLecturesByLecturerIDHandler {
+func NewListLecturesByLecturerIDHandler(lectureRepo repo.ILectureQueryRepo) *ListLecturesByLecturerIDHandler {
 	return &ListLecturesByLecturerIDHandler{lectureRepo: lectureRepo}
 }
 
-func (h *ListLecturesByLecturerIDHandler) Handle(ctx context.Context, q ListLecturesByLecturerIDQuery) ([]model.Lecture, int64, error) {
+func (h *ListLecturesByLecturerIDHandler) Handle(ctx context.Context, q ListLecturesByLecturerIDQuery) ([]model.LectureQuery, int64, error) {
 	if err := q.Validate(); err != nil {
 		return nil, 0, err
 	}

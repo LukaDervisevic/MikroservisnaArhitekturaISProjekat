@@ -22,6 +22,7 @@ type IEventWriteRepo interface {
 	CreateEvent(ctx context.Context, event *model.Event) error
 	UpdateEvent(ctx context.Context, event *model.Event) error
 	DeleteEvent(ctx context.Context, id int64) error
+	WithTx(tx *gorm.DB) *EventRepo
 }
 
 type IEventReadRepo interface {
@@ -36,6 +37,13 @@ type EventRepo struct {
 
 func NewEventRepo(db *gorm.DB) *EventRepo {
 	return &EventRepo{db: db}
+}
+
+func (r *EventRepo) WithTx(tx *gorm.DB) *EventRepo {
+	if tx == nil {
+		return nil
+	}
+	return &EventRepo{db: tx}
 }
 
 func (r *EventRepo) CreateEvent(ctx context.Context, event *model.Event) error {

@@ -48,6 +48,10 @@ func (b *BrokerClientConn) Publish(ctx context.Context, body []byte, durable boo
 
 	msg := rmq.NewMessage(body)
 	msg.Header = &amqp.MessageHeader{Durable: durable}
+	log.Info().Msg("publishing message to queue...")
 	_, err := b.Requester.Publish(ctx, msg)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to publish message to queue")
+	}
 	return err
 }

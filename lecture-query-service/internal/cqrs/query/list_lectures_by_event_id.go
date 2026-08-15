@@ -3,8 +3,8 @@ package query
 import (
 	"context"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/repo"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,14 +26,14 @@ func (q ListLecturesByEventIDQuery) Validate() error {
 }
 
 type ListLecturesByEventIDHandler struct {
-	lectureRepo repo.ILectureRepo
+	lectureRepo repo.ILectureQueryRepo
 }
 
-func NewListLecturesByEventIDHandler(lectureRepo repo.ILectureRepo) *ListLecturesByEventIDHandler {
+func NewListLecturesByEventIDHandler(lectureRepo repo.ILectureQueryRepo) *ListLecturesByEventIDHandler {
 	return &ListLecturesByEventIDHandler{lectureRepo: lectureRepo}
 }
 
-func (h *ListLecturesByEventIDHandler) Handle(ctx context.Context, q ListLecturesByEventIDQuery) ([]model.Lecture, int64, error) {
+func (h *ListLecturesByEventIDHandler) Handle(ctx context.Context, q ListLecturesByEventIDQuery) ([]model.LectureQuery, int64, error) {
 	if err := q.Validate(); err != nil {
 		return nil, 0, err
 	}

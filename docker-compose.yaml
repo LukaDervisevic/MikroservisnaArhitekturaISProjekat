@@ -13,7 +13,8 @@ services:
       - mais-backend
     healthcheck:
       test: [ "CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db
-      && pg_isready -U $POSTGRES_USER -d lecture_service_db" ]
+      && pg_isready -U $POSTGRES_USER -d lecture_service_db && pg_isready -U $POSTGRES_USER -d event_query_service_db 
+      && pg_isready -U $POSTGRES_USER -d lecture_query_service_db" ]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -70,21 +71,6 @@ services:
       ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
       ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
 
-  event-service:
-    container_name: event-service
-    build:
-      context: ./
-      dockerfile: ./event-service/Dockerfile
-    depends_on:
-      mais-db:
-        condition: service_healthy
-    ports:
-      - "50054:50054"
-    env_file:
-      - ./event-service/.env.docker
-    networks:
-      - mais-backend
-
   lecturer-service:
     container_name: lecturer-service
     build:
@@ -94,9 +80,39 @@ services:
       mais-db:
         condition: service_healthy
     ports:
-      - "50055:50055"
+      - "50051:50051"
     env_file:
       - ./lecturer-service/.env.docker
+    networks:
+      - mais-backend
+
+  event-service:
+    container_name: event-service
+    build:
+      context: ./
+      dockerfile: ./event-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50052:50052"
+    env_file:
+      - ./event-service/.env.docker
+    networks:
+      - mais-backend
+
+  event-query-service:
+    container_name: event-query-service
+    build:
+      context: ./
+      dockerfile: ./event-query-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50053:50053"
+    env_file:
+      - ./event-query-service/.env.docker
     networks:
       - mais-backend
 
@@ -109,11 +125,28 @@ services:
       mais-db:
         condition: service_healthy
     ports:
-      - "50056:50056"
+      - "50054:50054"
     env_file:
       - ./lecture-service/.env.docker
     networks:
       - mais-backend
+
+  lecture-query-service:
+    container_name: lecture-query-service
+    build:
+      context: ./
+      dockerfile: ./lecture-query-service/Dockerfile
+    depends_on:
+      mais-db:
+        condition: service_healthy
+    ports:
+      - "50055:50055"
+    env_file:
+      - ./lecture-query-service/.env.docker
+    networks:
+      - mais-backend
+
+
 
 volumes:
   postgres_data:

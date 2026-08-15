@@ -62,6 +62,7 @@ func Connect() *gorm.DB {
 			TablePrefix:   "lecture_service.",
 			SingularTable: false,
 		},
+		TranslateError: true,
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to database")

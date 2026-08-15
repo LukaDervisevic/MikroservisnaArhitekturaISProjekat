@@ -2,11 +2,17 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type CreateLectureCommand struct {
@@ -30,13 +36,25 @@ func (c CreateLectureCommand) Validate() error {
 }
 
 type CreateLectureHandler struct {
+	db           *gorm.DB
 	lectureRepo  repo.ILectureWriteRepo
 	eventRepo    repo.IEventReadRepo
 	lecturerRepo repo.ILecturerReadRepo
+	brokerConn   *rabbitmq.BrokerClientConn
 }
 
-func NewCreateLectureHandler(lectureRepo repo.ILectureWriteRepo, eventRepo repo.IEventReadRepo, lecturerRepo repo.ILecturerReadRepo) *CreateLectureHandler {
-	return &CreateLectureHandler{lectureRepo: lectureRepo, eventRepo: eventRepo, lecturerRepo: lecturerRepo}
+func NewCreateLectureHandler(
+	db *gorm.DB,
+	lectureRepo repo.ILectureWriteRepo,
+	eventRepo repo.IEventReadRepo,
+	lecturerRepo repo.ILecturerReadRepo,
+	brokerConn *rabbitmq.BrokerClientConn) *CreateLectureHandler {
+	return &CreateLectureHandler{
+		db:           db,
+		lectureRepo:  lectureRepo,
+		eventRepo:    eventRepo,
+		lecturerRepo: lecturerRepo,
+		brokerConn:   brokerConn}
 }
 
 func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureCommand) (*model.Lecture, error) {
@@ -60,12 +78,41 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 
 	lecture := &model.Lecture{
 		EventID:    cmd.EventID,
+		Event:      event,
 		LecturerID: cmd.LecturerID,
+		Lecturer:   lecturer,
 		Name:       cmd.Name,
 		Duration:   cmd.Duration,
 	}
-	if err := h.lectureRepo.CreateLecture(ctx, lecture); err != nil {
-		return nil, status.Error(codes.Internal, "failed to create lecture")
+
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := h.lectureRepo.CreateLecture(ctx, lecture); err != nil {
+			return status.Error(codes.Internal, "failed to create lecture")
+		}
+
+		msg := rabbitmq.Message{
+			IdempotentKey: uuid.New(),
+			Body:          *mapper.MapLectureToQuery(lecture),
+			Method:        "CreateLectureQuery",
+		}
+		var payload []byte
+		payload, err = json.Marshal(msg)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal message with id %s", msg.IdempotentKey.String())
+			return status.Error(codes.Internal, "failed to marshal lecture")
+		}
+
+		err := h.brokerConn.Publish(ctx, payload, true)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to publish message with id %s", msg.IdempotentKey.String())
+			return status.Error(codes.Internal, "failed to publish message")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	return lecture, nil
 }

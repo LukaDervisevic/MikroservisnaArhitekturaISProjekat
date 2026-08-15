@@ -56,7 +56,7 @@ func Connect() *gorm.DB {
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatal().Err(err).Msg("Migrations failed.")
 	}
-
+	log.Info().Msgf("%s", dbUrl.String())
 	db, err := gorm.Open(postgres.Open(dbUrl.String()), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix:   "event_query_service.",

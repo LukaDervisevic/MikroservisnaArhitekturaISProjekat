@@ -59,7 +59,7 @@ func Connect() *gorm.DB {
 
 	db, err := gorm.Open(postgres.Open(dbUrl.String()), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
-			TablePrefix:   "event_query_service.",
+			TablePrefix:   "event_service.",
 			SingularTable: false,
 		},
 	})

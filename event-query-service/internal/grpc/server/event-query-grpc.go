@@ -10,6 +10,7 @@ import (
 	eventpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"gorm.io/gorm"
 )
 
@@ -35,7 +36,7 @@ func NewGrpcServer(db *gorm.DB) *GrpcServer {
 	}
 }
 
-func (g *GrpcServer) GetEventByID(ctx context.Context, req *eventpb.GetEventByIdRequest) (*eventpb.GetEventByIDResponse, error) {
+func (g *GrpcServer) GetEventByID(ctx context.Context, req *eventpb.GetEventByIdRequest) (*eventpb.GetEventByIdQueryResponse, error) {
 	if req == nil || req.Id == 0 {
 		return nil, status.Error(codes.InvalidArgument, "id is required for event retrieval")
 	}
@@ -43,10 +44,10 @@ func (g *GrpcServer) GetEventByID(ctx context.Context, req *eventpb.GetEventById
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
 	}
-	return &eventpb.GetEventByIDResponse{Event: eventWithLocationModelToProto(event)}, nil
+	return &eventpb.GetEventByIdQueryResponse{EventWithLocation: eventWithLocationModelToProto(event)}, nil
 }
 
-func (g *GrpcServer) GetEventByName(ctx context.Context, req *eventpb.GetEventByNameRequest) (*eventpb.GetEventByNameResponse, error) {
+func (g *GrpcServer) GetEventByName(ctx context.Context, req *eventpb.GetEventByNameRequest) (*eventpb.GetEventByNameQueryResponse, error) {
 	if req == nil || req.Name == "" {
 		return nil, status.Error(codes.InvalidArgument, "name is required for event retrieval")
 	}
@@ -54,7 +55,7 @@ func (g *GrpcServer) GetEventByName(ctx context.Context, req *eventpb.GetEventBy
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
 	}
-	return &eventpb.GetEventByNameResponse{Event: eventWithLocationModelToProto(event)}, nil
+	return &eventpb.GetEventByNameQueryResponse{EventWithLocation: eventWithLocationModelToProto(event)}, nil
 }
 
 func (g *GrpcServer) ListEvents(ctx context.Context, req *eventpb.ListEventsRequest) (*eventpb.ListEventsResponse, error) {
@@ -79,7 +80,7 @@ func (g *GrpcServer) ListEvents(ctx context.Context, req *eventpb.ListEventsRequ
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
 	}
-	pbEvents := make([]*eventpb.Event, len(events))
+	pbEvents := make([]*eventpb.EventWithLocation, len(events))
 	for i, e := range events {
 		pbEvents[i] = eventWithLocationModelToProto(&e)
 	}
@@ -107,7 +108,7 @@ func (g *GrpcServer) ListEventsByType(ctx context.Context, req *eventpb.ListEven
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
 	}
-	pbEvents := make([]*eventpb.Event, len(events))
+	pbEvents := make([]*eventpb.EventWithLocation, len(events))
 	for i, e := range events {
 		pbEvents[i] = eventWithLocationModelToProto(&e)
 	}
@@ -117,9 +118,23 @@ func (g *GrpcServer) ListEventsByType(ctx context.Context, req *eventpb.ListEven
 	}, nil
 }
 
-func eventWithLocationModelToProto(e *model2.EventWithLocation) *eventpb.Event {
+func eventWithLocationModelToProto(e *model2.EventWithLocation) *eventpb.EventWithLocation {
 	if e == nil {
 		return nil
 	}
-	panic("TODO: implement eventWithLocationModelToProto")
+	return &eventpb.EventWithLocation{
+		EventId:              e.EventId,
+		EventName:            e.EventName,
+		EventCotisationPrice: e.EventCotisationPrice,
+		EventAgenda:          e.EventAgenda,
+		EventType:            e.EventType,
+		EventDateTime: &timestamppb.Timestamp{
+			Seconds: e.EventDateTime,
+			Nanos:   0,
+		},
+		LocationId:       e.LocationID,
+		LocationName:     e.LocationName,
+		LocationAddress:  e.LocationAddress,
+		LocationCapacity: e.LocationCapacity,
+	}
 }

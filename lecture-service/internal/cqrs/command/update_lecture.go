@@ -2,11 +2,17 @@ package command
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type UpdateLectureCommand struct {
@@ -28,19 +34,32 @@ func (c UpdateLectureCommand) Validate() error {
 }
 
 type UpdateLectureHandler struct {
-	lectureRepo repo.ILectureRepo
-	eventRepo   repo.IEventRepo
+	db               *gorm.DB
+	lectureWriteRepo repo.ILectureWriteRepo
+	lectureReadRepo  repo.ILectureReadRepo
+	eventRepo        repo.IEventReadRepo
+	brokerConn       *rabbitmq.BrokerClientConn
 }
 
-func NewUpdateLectureHandler(lectureRepo repo.ILectureRepo, eventRepo repo.IEventRepo) *UpdateLectureHandler {
-	return &UpdateLectureHandler{lectureRepo: lectureRepo, eventRepo: eventRepo}
+func NewUpdateLectureHandler(
+	db *gorm.DB,
+	lectureWriteRepo repo.ILectureWriteRepo,
+	eventRepo repo.IEventReadRepo,
+	lectureReadRepo repo.ILectureReadRepo,
+	brokerConn *rabbitmq.BrokerClientConn) *UpdateLectureHandler {
+	return &UpdateLectureHandler{
+		db:               db,
+		lectureWriteRepo: lectureWriteRepo,
+		eventRepo:        eventRepo,
+		lectureReadRepo:  lectureReadRepo,
+		brokerConn:       brokerConn}
 }
 
 func (h *UpdateLectureHandler) Handle(ctx context.Context, cmd UpdateLectureCommand) (*model.Lecture, error) {
 	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
-	lecture, err := h.lectureRepo.GetLectureByID(ctx, cmd.LectureID)
+	lecture, err := h.lectureReadRepo.GetLectureByID(ctx, cmd.LectureID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to retrieve lecture")
 	}
@@ -60,8 +79,35 @@ func (h *UpdateLectureHandler) Handle(ctx context.Context, cmd UpdateLectureComm
 	lecture.LecturerID = cmd.LecturerID
 	lecture.Name = cmd.Name
 	lecture.Duration = cmd.Duration
-	if err := h.lectureRepo.UpdateLecture(ctx, lecture); err != nil {
-		return nil, status.Error(codes.Internal, "failed to update lecture")
+
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := h.lectureWriteRepo.UpdateLecture(ctx, lecture); err != nil {
+			return status.Error(codes.Internal, "failed to update lecture")
+		}
+
+		msg := rabbitmq.Message{
+			IdempotentKey: uuid.New(),
+			Body:          *mapper.MapLectureToQuery(lecture),
+			Method:        "UpdateLectureQuery",
+		}
+
+		payload, err := json.Marshal(msg)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+			return status.Error(codes.Internal, "failed to marshal lecture")
+		}
+
+		err = h.brokerConn.Publish(ctx, payload, true)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+			return status.Error(codes.Internal, "failed to marshal lecture")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
+
 	return lecture, nil
 }

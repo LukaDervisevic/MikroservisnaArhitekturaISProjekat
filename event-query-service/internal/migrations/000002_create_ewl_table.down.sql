@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS event_query_service.events_with_locations;
+DROP TABLE IF EXISTS event_query_service.event_with_locations;

@@ -67,6 +67,26 @@ message GetEventByNameResponse {
     Event event = 1;
 }
 
+message EventWithLocation {
+    int64 event_id = 1;
+    string event_name = 2;
+    double event_cotisation_price = 3;
+    string event_agenda = 4;
+    string event_type = 5;
+    google.protobuf.Timestamp event_date_time = 6;
+    int64 location_id = 7;
+    string location_name = 8;
+    string location_address = 9;
+    int64 location_capacity = 10;
+}
+
+message GetEventByIdQueryResponse {
+    EventWithLocation eventWithLocation = 1;
+}
+
+message GetEventByNameQueryResponse {
+    EventWithLocation eventWithLocation = 1;
+}
 
 message ListEventsRequest {
     int32 page      = 1;
@@ -79,7 +99,7 @@ message ListEventsRequest {
 }
 
 message ListEventsResponse {
-    repeated Event events = 1;
+    repeated EventWithLocation events = 1;
     int32 total_count     = 2;
     int32 page            = 3;
     int32 page_size       = 4;
@@ -93,7 +113,7 @@ message ListEventsByTypeRequest {
 }
 
 message ListEventsByTypeResponse {
-    repeated Event events = 1;
+    repeated  EventWithLocation events = 1;
     int32 total_count     = 2;
     int32 page            = 3;
     int32 page_size       = 4;
@@ -110,9 +130,9 @@ service EventService {
     rpc DeleteEvent(DeleteEventRequest)   returns (DeleteEventResponse) {}
 
     // Get event by id
-    rpc GetEventByID(GetEventByIdRequest)       returns (GetEventByIDResponse) {}
+    rpc GetEventByID(GetEventByIdRequest)       returns (GetEventByIdQueryResponse) {}
     // Get event by name
-    rpc GetEventByName(GetEventByNameRequest)   returns (GetEventByNameResponse) {}
+    rpc GetEventByName(GetEventByNameRequest)   returns (GetEventByNameQueryResponse) {}
 
     // List events
     rpc ListEvents(ListEventsRequest)               returns (ListEventsResponse) {}
