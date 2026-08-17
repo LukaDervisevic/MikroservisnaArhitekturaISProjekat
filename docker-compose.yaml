@@ -43,7 +43,6 @@ services:
       RABBITMQ_DEFAULT_PASS: pass1234
       RABBITMQ_LOAD_DEFINITIONS: "/etc/rabbitmq/definitions_test.json"
 
-    # TODO: add healthcheck
 
   apisix:
     image: apache/apisix:${APISIX_IMAGE_TAG:-3.14.1-debian}

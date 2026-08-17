@@ -21,10 +21,10 @@ func NewMailPublisher(ctx context.Context, conn *rmq.AmqpConnection, queueName s
 		return nil, fmt.Errorf("nil rabbitmq connection")
 	}
 
-	mgmt := conn.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
-		return nil, fmt.Errorf("failed to declare queue %s: %w", queueName, err)
-	}
+	//mgmt := conn.Management()
+	//if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	//	return nil, fmt.Errorf("failed to declare queue %s: %w", queueName, err)
+	//}
 
 	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: queueName}, nil)
 	if err != nil {

@@ -10,9 +10,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Message[B any] struct {
+type Message struct {
 	IdempotentKey uuid.UUID
-	Body          B
+	Body          interface{}
 	Method        string
 }
 

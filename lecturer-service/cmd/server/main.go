@@ -45,17 +45,6 @@ func main() {
 		}
 	}()
 
-	/*
-		go func(brokerURI string, queue string, replyQueue string) {
-			log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
-			clientConn = rabbitmq.NewRabbitMQClientConn(ctx, brokerURI, nil)
-			clientConn.NewQueueRequester(ctx, clientConn.Connection, queue)
-		}(
-			os.Getenv("RABBITMQ_BROKER_URI"),
-			os.Getenv("RABBITMQ_LECTURER_QUEUE"),
-			os.Getenv("RABBITMQ_LECTURER_REPLY_QUEUE"),
-		)
-	*/
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop

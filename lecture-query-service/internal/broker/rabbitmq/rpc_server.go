@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -15,8 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
-type BrokerServerConn[B any] struct {
-	IdempotencyRepo  map[uuid.UUID]Message[B]
+type BrokerServerConn struct {
+	IdempotencyRepo  map[uuid.UUID]Message
 	Mutex            *sync.RWMutex
 	Environment      *rmq.Environment
 	Connection       *rmq.AmqpConnection
@@ -25,20 +26,20 @@ type BrokerServerConn[B any] struct {
 	lectureQueryRepo repo.ILectureQueryRepo
 }
 
-func NewBrokerServerConn[B any](ctx context.Context,
+func NewBrokerServerConn(ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	lecturerQueryRepo repo.ILectureQueryRepo) *BrokerServerConn[B] {
+	lecturerQueryRepo repo.ILectureQueryRepo) *BrokerServerConn {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
 		return nil
 	}
-	idempotentMap := make(map[uuid.UUID]Message[B])
+	idempotentMap := make(map[uuid.UUID]Message)
 	lock := &sync.RWMutex{}
 
-	return &BrokerServerConn[B]{
+	return &BrokerServerConn{
 		IdempotencyRepo:  idempotentMap,
 		Mutex:            lock,
 		Environment:      env,
@@ -48,7 +49,9 @@ func NewBrokerServerConn[B any](ctx context.Context,
 	}
 }
 
-func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
+var messageCastError = errors.New("failed to cast to lecture query model")
+
+func (b *BrokerServerConn) NewQueueResponder(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
 	if conn == nil {
 		return
 	}
@@ -60,7 +63,7 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 				payload = request.Data[0]
 			}
 
-			var message Message[model.LectureQuery]
+			var message Message
 			if err := json.Unmarshal(payload, &message); err != nil {
 				log.Error().Err(err).Msg("failed to unmarshal message payload")
 				return nil, err
@@ -81,18 +84,33 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 
 				switch message.Method {
 				case "CreateLectureQuery":
-					if err := txRepo.CreateLecture(ctx, &message.Body); err != nil {
+					v, ok := message.Body.(model.LectureQuery)
+					if !ok {
+						log.Error().Msg("failed to cast to lecture query model")
+						return messageCastError
+					}
+					if err := txRepo.CreateLecture(ctx, &v); err != nil {
 						log.Error().Err(err).Msgf("failed to create lecture query model in tx for msg %s", message.IdempotentKey)
 						return err
 					}
 				case "UpdateEventWithLocation":
-					if err := txRepo.UpdateLecture(ctx, &message.Body); err != nil {
+					v, ok := message.Body.(model.LectureQuery)
+					if !ok {
+						log.Error().Msg("failed to cast to lecture query model")
+						return messageCastError
+					}
+					if err := txRepo.UpdateLecture(ctx, &v); err != nil {
 						log.Error().Err(err).Msgf("failed to update lecture query model in tx for msg %s", message.IdempotentKey)
 						return err
 					}
 				case "DeleteEventWithLocation":
-					if err := txRepo.DeleteLecture(ctx, message.Body.LectureID, message.Body.LecturerId, message.Body.EventId); err != nil {
-						log.Error().Err(err).Msgf("failed to delete query model in tx for msq %s", message.IdempotentKey)
+					v, ok := message.Body.(model.LectureQuery)
+					if !ok {
+						log.Error().Msg("failed to cast to lecture query model")
+						return messageCastError
+					}
+					if err := txRepo.DeleteLecture(ctx, v.LectureID, v.LecturerId, v.EventId); err != nil {
+						log.Error().Err(err).Msgf("failed to delete lecture query model in tx for msq %s", message.IdempotentKey)
 						return err
 					}
 				default:
@@ -107,7 +125,7 @@ func (b *BrokerServerConn[B]) NewQueueResponder(ctx context.Context, conn *rmq.A
 			}
 
 			b.Mutex.Lock()
-			var rawMsg Message[B]
+			var rawMsg Message
 			_ = json.Unmarshal(payload, &rawMsg)
 			b.IdempotencyRepo[message.IdempotentKey] = rawMsg
 			b.Mutex.Unlock()
