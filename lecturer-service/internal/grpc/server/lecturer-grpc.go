@@ -37,7 +37,7 @@ type GrpcServer struct {
 	listLecturersHandler     *query.ListLecturersHandler
 
 	lecturerpb.UnimplementedLecturerServiceServer
-	BrokerConn      rabbitmq.BrokerClientConn
+	BrokerConn      rabbitmq.BrokerPublisherConn
 	scheduler       *scheduler.Scheduler
 	outboxProcessor *service.OutboxProcessor
 	MailPublisher   rabbitmq.MailPublisher
@@ -64,7 +64,7 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	getByNameHandler := query.NewGetLecturerByNameHandler(lecturerRepo)
 	listHandler := query.NewListLecturersHandler(lecturerRepo)
 
-	var lecturerBrokerConn *rabbitmq.BrokerClientConn
+	var lecturerBrokerConn *rabbitmq.BrokerPublisherConn
 	var lecturerScheduler *scheduler.Scheduler
 	var mailPublisher *rabbitmq.MailPublisher
 	var err error

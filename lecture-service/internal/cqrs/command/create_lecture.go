@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
@@ -90,19 +91,26 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			return status.Error(codes.Internal, "failed to create lecture")
 		}
 
+		lectureQueryBytes, err := json.Marshal(mapper.MapLectureToQuery(lecture))
+		if err != nil {
+			return status.Error(codes.Internal, "failed to marshal lecture query")
+		}
+
 		msg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
-			Body:          *mapper.MapLectureToQuery(lecture),
+			Body:          lectureQueryBytes,
 			Method:        "CreateLectureQuery",
+			TimeStamp:     time.Now(),
+			Retries:       0,
 		}
 		var payload []byte
 		payload, err = json.Marshal(msg)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal message with id %s", msg.IdempotentKey.String())
-			return status.Error(codes.Internal, "failed to marshal lecture")
+			return status.Error(codes.Internal, "failed to marshal payload")
 		}
 
-		err := h.brokerConn.Publish(ctx, payload, true)
+		err = h.brokerConn.Publish(ctx, payload, true)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to publish message with id %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish message")

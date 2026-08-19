@@ -49,19 +49,21 @@ func main() {
 		}
 	}()
 
-	var lecturerConsumerConn rabbitmq.BrokerServerConn
+	var lecturerConsumerConn rabbitmq.ConsumerConn
 
 	go func(brokerURI string, queue string) {
-		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
 		lectureQueryRepo := repo.NewLectureQueryRepo(conn)
-		broker := rabbitmq.NewBrokerServerConn(ctx, brokerURI, nil, conn, lectureQueryRepo)
+		broker := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo)
 
-		broker.NewQueueResponder(ctx, nil, "lecture-queue")
+		err := broker.NewQueueResponder(ctx, queue)
+		if err != nil {
+			return
+		}
 	}(
 		os.Getenv("RABBITMQ_BROKER_URI"),
 		os.Getenv("RABBITMQ_LECTURE_QUERY_QUEUE"),
 	)
-	
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop

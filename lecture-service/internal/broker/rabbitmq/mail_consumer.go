@@ -1,4 +1,3 @@
-// FILE: lecture-service/internal/broker/rabbitmq/mail_consumer.go
 package rabbitmq
 
 import (

@@ -14,10 +14,10 @@ import (
 type OutboxProcessor struct {
 	db         *gorm.DB
 	outboxRepo *repo.OutboxRepo
-	brokerConn *rabbitmq.BrokerClientConn
+	brokerConn *rabbitmq.BrokerPublisherConn
 }
 
-func NewOutboxProcessor(db *gorm.DB, outboxRepo *repo.OutboxRepo, brokerConn *rabbitmq.BrokerClientConn) *OutboxProcessor {
+func NewOutboxProcessor(db *gorm.DB, outboxRepo *repo.OutboxRepo, brokerConn *rabbitmq.BrokerPublisherConn) *OutboxProcessor {
 	return &OutboxProcessor{
 		db:         db,
 		outboxRepo: outboxRepo,

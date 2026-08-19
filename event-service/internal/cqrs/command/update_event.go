@@ -3,6 +3,8 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/mapper"
@@ -76,11 +78,17 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 			return status.Error(codes.Internal, "failed to update event")
 		}
 
-		eventWithLocation := mapper.MapEventToQuery(event, location)
-		msg := rabbitmq.Message[model.EventWithLocation]{
+		eventWithLocationQuery, err := json.Marshal(mapper.MapEventToQuery(event, location))
+		if err != nil {
+			return fmt.Errorf("unable to marshal event with location query")
+		}
+
+		msg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
-			Body:          *eventWithLocation,
+			Body:          eventWithLocationQuery,
 			Method:        "UpdateEventWithLocation",
+			CreatedAt:     time.Now(),
+			Retries:       0,
 		}
 
 		var msgByte []byte
@@ -90,7 +98,7 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
-		err := h.broker.Publish(ctx, msgByte, true)
+		err = h.broker.Publish(ctx, msgByte, true)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event to query service")

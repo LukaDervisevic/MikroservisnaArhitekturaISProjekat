@@ -43,17 +43,16 @@ func main() {
 	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(ctx, conn))
 
 	go func() {
-		log.Printf("starting event service grpc server on port %v...", port)
+		log.Printf("starting lecture service grpc server on port %v...", port)
 		if err := grpcServer.Serve(listener); err != nil {
 			log.Fatal().Err(err).Msg("failed to server grpc request")
 			cancel()
 		}
 	}()
 
-	var lecturerConsumerConn rabbitmq.BrokerServerConn
+	var lecturerConsumerConn rabbitmq.ConsumerConn
 
 	go func(brokerURI string, queue string) {
-		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
 		eventRepo := repo.NewEventRepo(conn)
 		lecturerRepo := repo.NewLecturerRepo(conn)
 		broker, _ := rabbitmq.NewBrokerServerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo)

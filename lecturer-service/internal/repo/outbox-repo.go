@@ -32,7 +32,7 @@ func (r *OutboxRepo) WithTx(tx *gorm.DB) *OutboxRepo {
 	return &OutboxRepo{db: tx}
 }
 
-func (r *OutboxRepo) StashMessage(ctx context.Context, message rabbitmq.Message[interface{}]) error {
+func (r *OutboxRepo) StashMessage(ctx context.Context, message rabbitmq.Message) error {
 	encPayload, err := json.Marshal(message)
 	if err != nil {
 		log.Error().Msgf("message %s not encoded into payload", message.IdempotentKey.String())

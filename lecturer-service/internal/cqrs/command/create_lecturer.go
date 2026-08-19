@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
@@ -42,10 +43,12 @@ func (h *CreateLecturerHandler) Handle(ctx context.Context, cmd CreateLecturerCo
 			return err
 		}
 
-		outboxMsg := rabbitmq.Message[interface{}]{
+		outboxMsg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
 			Body:          *lecturer,
 			Method:        "CreateLecturer",
+			TimeStamp:     time.Now(),
+			Retries:       0,
 		}
 
 		if err := h.outboxRepo.WithTx(tx).StashMessage(ctx, outboxMsg); err != nil {

@@ -11,7 +11,6 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/grpc/server"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-query-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"github.com/rs/zerolog/log"
@@ -43,21 +42,27 @@ func main() {
 	event.RegisterEventServiceServer(grpcServer, server.NewGrpcServer(conn))
 
 	go func() {
-		log.Printf("starting event service grpc server on port %v...", port)
+		log.Printf("starting event query service grpc server on port %v...", port)
 		if err := grpcServer.Serve(listener); err != nil {
 			log.Fatal().Err(err).Msg("failed to server grpc request")
 			cancel()
 		}
 	}()
 
-	var serverConn rabbitmq.BrokerServerConn[model.EventWithLocation]
+	var serverConn rabbitmq.ConsumerConn
 
 	go func(brokerURI string, queue string) {
-		log.Info().Msgf("connection attempt to RabbitMQ message broker at %s", brokerURI)
 		eventQueryRepo := repo.NewEventRepo(conn)
-		serverConn := rabbitmq.NewBrokerServerConn[model.EventWithLocation](ctx, brokerURI, nil, conn, eventQueryRepo)
-
-		serverConn.NewQueueResponder(ctx, serverConn.Connection, queue)
+		serverConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventQueryRepo)
+		if err != nil {
+			log.Error().Msg("unable to establish consumer connection to rabbitmq broker")
+			return
+		}
+		err = serverConn.NewQueueResponder(ctx, queue)
+		if err != nil {
+			log.Error().Msg("unable to create a rabbitmq queue responder")
+			return
+		}
 
 	}(
 		os.Getenv("RABBITMQ_BROKER_URI"),
@@ -69,7 +74,6 @@ func main() {
 	<-stop
 
 	defer func() { _ = serverConn.Environment.CloseConnections(ctx) }()
-	defer func() { _ = serverConn.Responder.Close(ctx) }()
 	defer func() { _ = serverConn.Connection.Close(ctx) }()
 
 	log.Info().Msg("Shutting down lectuer gRPC server...")

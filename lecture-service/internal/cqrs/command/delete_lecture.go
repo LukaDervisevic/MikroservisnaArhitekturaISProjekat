@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
@@ -54,10 +55,17 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 			return status.Error(codes.Internal, "failed to delete lecture")
 		}
 
+		lectureQueryBytes, err := json.Marshal(mapper.MapLectureToQuery(lecture))
+		if err != nil {
+			return status.Error(codes.Internal, "failed to marshal lecture query")
+		}
+
 		msg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
-			Body:          *mapper.MapLectureToQuery(lecture),
+			Body:          lectureQueryBytes,
 			Method:        "DeleteLectureQuery",
+			TimeStamp:     time.Now(),
+			Retries:       0,
 		}
 
 		payload, err := json.Marshal(msg)
