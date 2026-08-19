@@ -1,9 +1,0 @@
-admin:
-  admin_key:
-    - name: "admin"
-      key: "gT7uHTRXinZ0yAFJ2x+lUcImg8k/a506MihsDsthmEY=test"
-      role: admin
-
-  etcd:
-    host:
-      - "http://etcd:2379"

@@ -49,19 +49,23 @@ services:
     restart: always
     container_name: api_gateway
     volumes:
-      - ./api-gateway/apisix/config.yml:/usr/local/apisix/conf/config.yml:ro
+      - ./api-gateway/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
     depends_on:
-      - etcd
+      etcd:
+        condition: service_healthy
     ports:
       - "9180:9180/tcp"  # Admin API
       - "9080:9080/tcp"  # HTTP traffic
       - "9091:9091/tcp"  # Prometheus metrics
       - "9443:9443/tcp"  # HTTPS traffic
       - "9092:9092/tcp"  # Control API
+    networks:
+      - apisix
 
   etcd:
     image: bitnamilegacy/etcd:3.5.11
     restart: always
+    container_name: "etcd"
     volumes:
       - etcd_data:/bitnami/etcd
     environment:
@@ -69,6 +73,15 @@ services:
       ALLOW_NONE_AUTHENTICATION: "yes"
       ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
       ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    healthcheck:
+      test: "etcdctl endpoint health"
+      interval: 5s
+      timeout: 30s
+      retries: 5
+    ports:
+      - "2379:2379/tcp"
+    networks:
+      - apisix
 
   lecturer-service:
     container_name: lecturer-service
@@ -152,8 +165,11 @@ volumes:
   rabbitmq_data:
   rabbitmq_log:
   etcd_data:
+    driver: local
 
 networks:
   mais-backend:
+    driver: bridge
+  apisix:
     driver: bridge
 
