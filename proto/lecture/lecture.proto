@@ -6,6 +6,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "proto/lecturer/lecturer.proto";
 import "proto/event/event.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture";
 
@@ -15,6 +16,24 @@ message Lecture {
     event.Event event = 3;
     string name = 4;
     google.protobuf.Duration duration = 5;
+}
+
+message LectureQuery {
+    int64 lecture_id = 1;
+    int64 lecturer_id = 2;
+    string lecturer_full_name = 3;
+    string lecturer_title = 4;
+    string lecturer_field_of_expertise = 5;
+    int64 event_id = 6;
+    string event_name = 7;
+    double event_cotisation_price = 8;
+    string event_agenda = 9;
+    string event_type = 10;
+    google.protobuf.Timestamp event_date_time = 11;
+    int64 location_id = 12;
+    string location_name = 13;
+    string location_address = 14;
+    int64 location_capacity = 15;
 }
 
 message CreateLectureRequest {
@@ -44,6 +63,14 @@ message GetLectureByNameResponse {
     Lecture lecture = 1;
 }
 
+message GetLectureByNameQueryResponse {
+    LectureQuery lecture = 1;
+}
+
+message GetLectureByIDQueryResponse {
+    LectureQuery lecture = 1;
+}
+
 message ListLecturesByEventIDRequest {
     int64 event_id  = 1;
     int32 page      = 2;
@@ -51,7 +78,7 @@ message ListLecturesByEventIDRequest {
 }
 
 message ListLecturesByEventIDResponse {
-    repeated Lecture lectures = 1;
+    repeated LectureQuery lectures = 1;
     int32 total_count         = 2;
     int32 page                = 3;
     int32 page_size           = 4;
@@ -65,7 +92,7 @@ message ListLecturesByLecturerIDRequest {
 }
 
 message ListLecturesByLecturerIDResponse {
-    repeated Lecture lectures = 1;
+    repeated LectureQuery lectures = 1;
     int32 total_count         = 2;
     int32 page                = 3;
     int32 page_size           = 4;
@@ -98,9 +125,9 @@ service LectureService {
     rpc DeleteLecture(DeleteLectureRequest)   returns (DeleteLectureResponse) {}
 
     // Get lecture by id
-    rpc GetLectureByID(GetLectureByIDRequest)       returns (GetLectureByIDResponse) {}
+    rpc GetLectureByID(GetLectureByIDRequest)       returns (GetLectureByIDQueryResponse) {}
     // Get lecture by name
-    rpc GetLectureByName(GetLectureByNameRequest)   returns (GetLectureByNameResponse) {}
+    rpc GetLectureByName(GetLectureByNameRequest)   returns (GetLectureByNameQueryResponse) {}
 
     // List lecture by event id
     rpc ListLecturesByEventID(ListLecturesByEventIDRequest)       returns (ListLecturesByEventIDResponse) {}

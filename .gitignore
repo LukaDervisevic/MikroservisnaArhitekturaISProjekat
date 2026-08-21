@@ -28,6 +28,22 @@ go.work.sum
 **/.env*
 !**/.env.example
 
+event-service/cmd/server/**
+!event-service/cmd/server/main.go
+
+event-query-service/cmd/server/**
+!event-query-service/cmd/server/main.go
+
+lecture-service/cmd/server/**
+!lecture-service/cmd/server/main.go
+
+lecturer-service/cmd/server/**
+!lecturer-service/cmd/server/main.go
+
+lecture-query-service/cmd/server/**
+!lecture-query-service/cmd/server/main.go
+
+
 # Editor/IDE
- .idea/
- .vscode/
+.idea/
+.vscode/

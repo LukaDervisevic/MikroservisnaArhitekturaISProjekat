@@ -1,0 +1,52 @@
+package rabbitmq
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/Azure/go-amqp"
+	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
+)
+
+type PublisherConn struct {
+	BrokerURI   string
+	Environment *rmq.Environment
+	Connection  *rmq.AmqpConnection
+	Requesters  map[string]rmq.Requester
+}
+
+func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) (*PublisherConn, error) {
+	env := rmq.NewEnvironment(brokerURI, connOptions)
+	conn, err := env.NewConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &PublisherConn{
+		BrokerURI:   brokerURI,
+		Environment: env,
+		Connection:  conn,
+		Requesters:  make(map[string]rmq.Requester),
+	}, nil
+}
+
+func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
+	if conn == nil {
+		return fmt.Errorf("publisher connection is nil to queue %s", queueName)
+	}
+	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
+	if err != nil {
+		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+	}
+	b.Requesters[queueName] = requester
+	return nil
+}
+
+func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {
+	if b == nil || b.Requesters[queueName] == nil {
+		return fmt.Errorf("rabbitmq requester is not initialized")
+	}
+	msg := rmq.NewMessage(body)
+	msg.Header = &amqp.MessageHeader{Durable: durable}
+	_, err := b.Requesters[queueName].Publish(ctx, msg)
+	return err
+}

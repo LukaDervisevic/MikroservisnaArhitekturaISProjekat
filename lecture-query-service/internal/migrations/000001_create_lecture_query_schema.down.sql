@@ -1,0 +1,1 @@
+DROP SCHEMA IF EXISTS lecture_query_service;

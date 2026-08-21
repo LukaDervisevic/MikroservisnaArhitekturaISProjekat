@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS event_service.events_with_locations;

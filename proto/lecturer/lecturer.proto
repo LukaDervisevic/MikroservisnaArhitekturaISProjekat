@@ -91,7 +91,6 @@ message DeleteLecturerResponse {
     Lecturer lecturer = 1;
 }
 
-
 service LecturerService {
     // Create Lecturer
     rpc CreateLecturer(CreateLecturerRequest)   returns (CreateLecturerResponse) {}
@@ -109,4 +108,15 @@ service LecturerService {
     rpc ListLecturers(ListLecturersRequest)                                       returns (ListLecturersResponse) {}
     // List lecturers by field of expertise
     rpc ListLecturersByFieldOfExpertise(ListLecturersByFieldOfExpertiseRequest)   returns (ListLecturersByFieldOfExpertiseResponse) {}
+}
+
+service MailService {
+    rpc SendEmail(SendEmailRequest) returns (google.protobuf.Empty);
+}
+
+message SendEmailRequest {
+    string to = 1;
+    string subject = 2;
+    string body = 3;
+    bool force_fail = 4;
 }

@@ -17,7 +17,7 @@ import (
 
 func main() {
 
-	_, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if err := config.LoadEnv(); err != nil {
@@ -34,10 +34,11 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	lecturer.RegisterLecturerServiceServer(grpcServer, server.NewGrpcServer(conn))
+	lecturerServer := server.NewGrpcServer(ctx, conn)
+	lecturer.RegisterLecturerServiceServer(grpcServer, lecturerServer)
 
 	go func() {
-		log.Printf("starting user service grpc server on port %v...", port)
+		log.Printf("starting lecturer service grpc server on port %v...", port)
 		if err := grpcServer.Serve(listener); err != nil {
 			log.Fatal().Err(err).Msg("failed to server grpc request")
 			cancel()
@@ -48,7 +49,13 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	log.Info().Msg("Shutting down lectuer gRPC server...")
+	log.Info().Msgf("shutting down rabbitmq lecturer client...")
+	defer func() { _ = lecturerServer.PublisherConn.Environment.CloseConnections(ctx) }()
+	//defer func() { _ = lecturerServer.BrokerConn.Requester.Close(ctx) }()
+	defer func() { _ = lecturerServer.PublisherConn.Connection.Close(ctx) }()
+	log.Info().Msgf("successfully shut down rabbitmq connection")
+
+	log.Info().Msg("Shutting down lecturer gRPC server...")
 	grpcServer.GracefulStop()
 	log.Info().Msg("Lecturer gRPC server stopped.")
 

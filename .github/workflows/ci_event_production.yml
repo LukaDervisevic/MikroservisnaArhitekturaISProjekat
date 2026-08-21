@@ -2,7 +2,7 @@ name: ci_event_production.yml
 on:
   pull_request:
     paths:
-      - './event-service/**'
+      - 'event-service/**'
     branches:
       - 'main'
 

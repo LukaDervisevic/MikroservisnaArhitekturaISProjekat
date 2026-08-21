@@ -2,7 +2,12 @@ name: ci_event_development.yml
 on:
   pull_request:
     paths:
-      - './event-service/**'
+      - 'event-service/**'
+    branches:
+      - 'development'
+  push:
+    paths:
+      - 'event-service/**'
     branches:
       - 'development'
 
@@ -36,7 +41,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_PASS }}
 
       - name: Build a docker image
-        run: docker build . --file .\event-service\Dockerfile -t ${{secrets.DOCKERHUB_USER}}/event-service-development:${{ github.sha }}
+        run: docker build . --file ./event-service/Dockerfile -t ${{secrets.DOCKERHUB_USER}}/event-service-development:${{ github.sha }}
 
 
 #     TODO: Healthcheck endpoint for smoke test
