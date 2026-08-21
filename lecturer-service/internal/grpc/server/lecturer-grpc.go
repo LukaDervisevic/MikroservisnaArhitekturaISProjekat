@@ -13,6 +13,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/query"
 	outbox2 "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/outbox"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,8 +37,8 @@ type GrpcServer struct {
 	listLecturersHandler     *query.ListLecturersHandler
 
 	lecturerpb.UnimplementedLecturerServiceServer
-	PublisherConn   rabbitmq.PublisherConn
-	ConsumerConn    rabbitmq.ConsumerConn
+	PublisherConn   *rabbitmq.PublisherConn
+	ConsumerConn    *rabbitmq.ConsumerConn
 	outboxProcessor *outbox.OutboxProcessor
 }
 
@@ -55,18 +56,36 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	lecturerRepo := repo.NewLecturerRepo(db)
 	outboxRepo := outbox2.NewOutboxRepo(db)
 
-	var consumerConn *rabbitmq.ConsumerConn
-	var publisherConn *rabbitmq.PublisherConn
-	var err error
-	consumerConn, err = rabbitmq.NewConsumerConn(ctx, os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"), nil, db, *lecturerRepo)
-	publisherConn, err = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), nil)
+	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
+	toLectureQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
+	replyQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
 
+	// One registry shared by the consumer that receives saga replies and the
+	// command handler that waits on them.
+	sagaReplies := saga.NewSagaReplyRegistry()
+
+	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
-		log.Err(err).Msg("unable to create grpc server")
+		log.Err(err).Msg("unable to create publisher connection")
 		return nil
 	}
+	if err := publisherConn.NewQueueRequester(ctx, publisherConn.Connection, toLectureQueue); err != nil {
+		log.Err(err).Msgf("unable to create requester for queue %s", toLectureQueue)
+		return nil
+	}
+
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, db, *lecturerRepo, sagaReplies)
+	if err != nil {
+		log.Err(err).Msg("unable to create consumer connection")
+		return nil
+	}
+	if err := consumerConn.NewQueueResponder(ctx, replyQueue); err != nil {
+		log.Err(err).Msgf("unable to create responder for queue %s", replyQueue)
+		return nil
+	}
+
 	createHandler := command.NewCreateLecturerHandler(db, lecturerRepo, outboxRepo)
-	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, consumerConn)
+	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, sagaReplies)
 	deleteHandler := command.NewDeleteLecturerHandler(lecturerRepo)
 	getByIDHandler := query.NewGetLecturerByIDHandler(lecturerRepo)
 	getByNameHandler := query.NewGetLecturerByNameHandler(lecturerRepo)
@@ -163,9 +182,9 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 		listLecturersHandler:     listHandler,
 
 		outboxProcessor: outboxProcessor,
-	}
-	if publisherConn != nil {
-		grpcServer.PublisherConn = *publisherConn
+
+		PublisherConn: publisherConn,
+		ConsumerConn:  consumerConn,
 	}
 
 	return grpcServer

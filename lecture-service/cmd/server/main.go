@@ -34,9 +34,21 @@ func main() {
 
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 
+	// Inbound: sagas from lecturer-service, plus replies from lecture-query-service.
+	// Outbound: sagas to lecture-query-service, plus replies to lecturer-service.
+	fromLecturerQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
+	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
+	toLectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
+	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
+
 	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
+	}
+	for _, queue := range []string{toLectureQueryQueue, replyToLecturerQueue} {
+		if err := publisherConn.NewQueueRequester(ctx, publisherConn.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create requester for queue %s", queue)
+		}
 	}
 
 	sagaReplies := saga.NewSagaReplyRegistry()
@@ -44,16 +56,17 @@ func main() {
 	eventRepo := repo.NewEventRepo(conn)
 	lecturerRepo := repo.NewLecturerRepo(conn)
 
-	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo, sagaReplies)
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo, lectureRepo, sagaReplies, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
 
-	if err := consumerConn.NewQueueResponder(ctx, "lecture-events"); err != nil {
-		log.Fatal().Err(err).Msg("failed to start lecture-events responder")
-	}
-	if err := consumerConn.NewQueueResponder(ctx, "lecturers"); err != nil {
-		log.Fatal().Err(err).Msg("failed to start lecturers responder")
+	// Separate responders: the saga responder blocks while awaiting a downstream
+	// reply, so the reply must arrive on its own responder goroutine.
+	for _, queue := range []string{fromLecturerQueue, replyToLectureQueue} {
+		if err := consumerConn.NewQueueResponder(ctx, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to start responder for queue %s", queue)
+		}
 	}
 
 	port := os.Getenv("LECTURE_SERVICE_PORT")

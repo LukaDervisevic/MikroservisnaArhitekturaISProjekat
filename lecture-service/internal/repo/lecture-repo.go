@@ -42,6 +42,27 @@ func NewLectureRepo(db *gorm.DB) *LectureRepo {
 	return &LectureRepo{db: db}
 }
 
+func (r *LectureRepo) WithTx(tx *gorm.DB) *LectureRepo {
+	if tx == nil {
+		return r
+	}
+	return &LectureRepo{db: tx}
+}
+
+// ListAllLecturesByLecturerID returns every lecture a lecturer gives, unpaged.
+// Used to rebuild read-model projections, where a partial page would silently
+// leave stale rows behind.
+func (r *LectureRepo) ListAllLecturesByLecturerID(ctx context.Context, lecturerID int64) ([]model.Lecture, error) {
+	var lectures []model.Lecture
+	err := r.db.WithContext(ctx).
+		Preload("Event").
+		Preload("Event.Location").
+		Preload("Lecturer").
+		Where("lecturer_id = ?", lecturerID).
+		Find(&lectures).Error
+	return lectures, err
+}
+
 func (r *LectureRepo) CreateLecture(ctx context.Context, lecture *model.Lecture) error {
 	return r.db.WithContext(ctx).Create(lecture).Error
 }

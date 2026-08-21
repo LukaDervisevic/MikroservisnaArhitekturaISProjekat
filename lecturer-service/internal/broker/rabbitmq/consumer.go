@@ -21,6 +21,7 @@ import (
 
 type Message struct {
 	IdempotentKey uuid.UUID `json:"idempotentKey"`
+	SagaID        uuid.UUID `json:"sagaId"`
 	Method        string    `json:"method"`
 	TimeStamp     time.Time
 	Body          json.RawMessage `json:"body"`
@@ -50,15 +51,13 @@ type ConsumerConn struct {
 	sagaReplies  *saga.SagaReplyRegistry
 }
 
-var sagaRollbackError = errors.New("lecture rollback error")
-var sagaNilReferenceError = errors.New("saga nil reference error")
-
 func NewConsumerConn(
 	ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
 	lecturerRepo repo.LecturerRepo,
+	sagaReplies *saga.SagaReplyRegistry,
 ) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
@@ -73,7 +72,7 @@ func NewConsumerConn(
 		responders:   make(map[string]rmq.Responder),
 		db:           db,
 		lecturerRepo: lecturerRepo,
-		sagaReplies:  saga.NewSagaReplyRegistry(),
+		sagaReplies:  sagaReplies,
 	}, nil
 }
 
@@ -144,20 +143,14 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
 
 	switch msg.Method {
+	// Tail of the saga chain: lecture-service reports whether the downstream
+	// participants committed, which unblocks UpdateLecturerHandler.
 	case "UpdateLecturerSAGAReply":
-		sagaReply, err := decode[model.SagaLectureReply](msg.Body)
+		sagaReply, err := decode[model.SagaReply](msg.Body)
 		if err != nil {
 			return err
 		}
-		if sagaReply == nil {
-			return sagaNilReferenceError
-		}
-
-		var resolveErr error
-		if !sagaReply.IsCommit {
-			resolveErr = sagaRollbackError
-		}
-		b.sagaReplies.Resolve(sagaReply.Lecturer.Id, resolveErr)
+		b.sagaReplies.Resolve(msg.SagaID, sagaReply.Err())
 		return nil
 
 	default:

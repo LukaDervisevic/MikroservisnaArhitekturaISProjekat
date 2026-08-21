@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 type Message struct {
 	IdempotentKey uuid.UUID
+	SagaID        uuid.UUID `json:"sagaId"`
 	Method        string
 	Body          json.RawMessage
 	Timestamp     time.Time
@@ -40,17 +42,19 @@ type ConsumerConn struct {
 	responders       map[string]*rmq.Responder
 	db               *gorm.DB
 	lectureQueryRepo repo.ILectureQueryRepo
+	publisherConn    *PublisherConn
 }
 
 func NewConsumerConn(ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	lecturerQueryRepo repo.ILectureQueryRepo) *ConsumerConn {
+	lecturerQueryRepo repo.ILectureQueryRepo,
+	publisherConn *PublisherConn) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("connect to broker: %w", err)
 	}
 	lock := &sync.RWMutex{}
 
@@ -62,7 +66,8 @@ func NewConsumerConn(ctx context.Context,
 		responders:       make(map[string]*rmq.Responder),
 		db:               db,
 		lectureQueryRepo: lecturerQueryRepo,
-	}
+		publisherConn:    publisherConn,
+	}, nil
 }
 
 func (b *ConsumerConn) NewQueueResponder(ctx context.Context, queueName string) error {
@@ -106,23 +111,44 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 			ProcessedAt:   time.Now(),
 		}
 
-		if err := tx.Create(persistedMsg); err != nil {
+		if err := tx.Create(persistedMsg).Error; err != nil {
 			return fmt.Errorf("claim idempotency key: %w", err)
 		}
 		return b.dispatch(ctx, tx, msg)
 	})
 
+	if isDuplicateKey(err) {
+		b.remember(msg.IdempotentKey)
+		return nil, nil // committed by someone else; still a success
+	}
+
+	// End of the saga chain: report the outcome back to lecture-service, which
+	// then commits or rolls back and reports on to lecturer-service.
+	b.replyUpstream(ctx, msg, err)
+
 	if err != nil {
-		if isDuplicateKey(err) {
-			b.remember(msg.IdempotentKey)
-			return nil, nil // committed by someone else; still a success
-		}
 		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
 		return nil, err // rolled back, safe to redeliver
 	}
 	b.remember(msg.IdempotentKey)
 	log.Info().Msgf("processed %s for message %s", msg.Method, msg.IdempotentKey)
 	return nil, nil
+}
+
+func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr error) {
+	if msg.Method != "UpdateLectureQuerySAGA" {
+		return
+	}
+
+	reply := model.CommitReply()
+	if txErr != nil {
+		reply = model.RollbackReply(txErr)
+	}
+
+	replyQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
+	if err := b.publisherConn.PublishSaga(ctx, replyQueue, msg.SagaID, "UpdateLectureQuerySAGAReply", reply); err != nil {
+		log.Error().Err(err).Msgf("failed to reply to saga %s on queue %s", msg.SagaID, replyQueue)
+	}
 }
 
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
@@ -148,8 +174,23 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 			return err
 		}
 		return lectureQueryTx.DeleteLecture(ctx, lectureQuery.LectureID, lectureQuery.LecturerId, lectureQuery.EventId)
+
+	// Saga step: lecture-service sends the already-built projections, so this
+	// service only persists them. All rows land in one tx, so the reply this
+	// service sends back covers the whole batch.
+	case "UpdateLectureQuerySAGA":
+		lectureQueries, err := decode[[]model.LectureQuery](msg.Body)
+		if err != nil {
+			return err
+		}
+		for i := range *lectureQueries {
+			if err := lectureQueryTx.UpdateLecture(ctx, &(*lectureQueries)[i]); err != nil {
+				return fmt.Errorf("update lecture query projection: %w", err)
+			}
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("unknown method: %s", msg.Method)
 }
 
 func decode[T any](raw json.RawMessage) (*T, error) {

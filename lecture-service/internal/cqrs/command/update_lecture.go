@@ -2,12 +2,11 @@ package command
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
@@ -17,6 +16,10 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
+
+// sagaTimeout bounds how long this service, as a saga initiator, waits for the
+// chain to report back.
+const sagaTimeout = 20 * time.Second
 
 type UpdateLectureCommand struct {
 	LectureID  int64
@@ -90,23 +93,38 @@ func (h *UpdateLectureHandler) Handle(
 	lecture.Name = cmd.Name
 	lecture.Duration = cmd.Duration
 
+	lectureQuery := mapper.MapLectureToQuery(lecture)
+	if lectureQuery == nil {
+		return nil, status.Error(codes.Internal, "lecture is missing event or lecturer data")
+	}
+
+	// Same shape as the lecturer saga: hold the local write until the read model
+	// confirms it applied the change.
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		ch := h.sagaReplies.Register(lecture.LectureID)
+		sagaID := uuid.New()
+		ch := h.sagaReplies.Register(sagaID)
+		defer h.sagaReplies.Unregister(sagaID)
 
-		go func() {
-			if err := h.sendUpdateEvent(ctx, *lecture); err != nil {
-				h.sagaReplies.Resolve(lecture.LectureID, err)
-			}
-		}()
-
-		var sagaErr error
-		select {
-		case sagaErr = <-ch:
-		case <-time.After(10 * time.Second):
-			sagaErr = errors.New("saga reply timeout")
+		if err := h.publisherConn.PublishSaga(
+			ctx,
+			os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE"),
+			sagaID,
+			"UpdateLectureQuerySAGA",
+			[]*model.LectureQuery{lectureQuery},
+		); err != nil {
+			log.Error().Err(err).Msgf("failed to dispatch saga %s for lecture %d", sagaID, lecture.LectureID)
+			return status.Error(codes.Internal, "failed to dispatch lecture saga")
 		}
-		if sagaErr != nil {
-			return status.Error(codes.Internal, "saga failed: "+sagaErr.Error())
+
+		select {
+		case sagaErr := <-ch:
+			if sagaErr != nil {
+				log.Warn().Err(sagaErr).Msgf("saga %s rolled back for lecture %d", sagaID, lecture.LectureID)
+				return status.Error(codes.Internal, "saga rolled back: "+sagaErr.Error())
+			}
+		case <-time.After(sagaTimeout):
+			log.Warn().Msgf("saga %s timed out for lecture %d", sagaID, lecture.LectureID)
+			return status.Error(codes.DeadlineExceeded, "saga reply timeout")
 		}
 
 		if err := h.lectureWriteRepo.UpdateLecture(ctx, lecture); err != nil {
@@ -120,35 +138,4 @@ func (h *UpdateLectureHandler) Handle(
 	}
 
 	return lecture, nil
-}
-
-func (h *UpdateLectureHandler) sendUpdateEvent(ctx context.Context, lecturer model.Lecture) error {
-
-	lectureQueryBytes, err := json.Marshal(lecturer)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal lecture with id %d", lecturer.LectureID)
-		return status.Error(codes.Internal, "failed to marshal lecture")
-	}
-
-	msg := rabbitmq.Message{
-		IdempotentKey: uuid.New(),
-		Body:          lectureQueryBytes,
-		Method:        "UpdateLecturerQuerySAGA",
-		TimeStamp:     time.Now(),
-		Retries:       0,
-	}
-
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-		return status.Error(codes.Internal, "failed to marshal lecture")
-	}
-
-	err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUEUE"), true)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-		return status.Error(codes.Internal, "failed to marshal lecture")
-	}
-
-	return nil
 }

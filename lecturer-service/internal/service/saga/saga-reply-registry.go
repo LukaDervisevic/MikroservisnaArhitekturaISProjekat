@@ -1,29 +1,39 @@
 package saga
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/google/uuid"
+)
 
 type SagaReplyRegistry struct {
 	mu    sync.Mutex
-	chans map[int64]chan error
+	chans map[uuid.UUID]chan error
 }
 
 func NewSagaReplyRegistry() *SagaReplyRegistry {
-	return &SagaReplyRegistry{chans: make(map[int64]chan error)}
+	return &SagaReplyRegistry{chans: make(map[uuid.UUID]chan error)}
 }
 
-func (r *SagaReplyRegistry) Register(id int64) chan error {
+func (r *SagaReplyRegistry) Register(sagaID uuid.UUID) chan error {
 	ch := make(chan error, 1)
 	r.mu.Lock()
-	r.chans[id] = ch
+	r.chans[sagaID] = ch
 	r.mu.Unlock()
 	return ch
 }
 
-func (r *SagaReplyRegistry) Resolve(id int64, err error) {
+func (r *SagaReplyRegistry) Unregister(sagaID uuid.UUID) {
 	r.mu.Lock()
-	ch, ok := r.chans[id]
+	delete(r.chans, sagaID)
+	r.mu.Unlock()
+}
+
+func (r *SagaReplyRegistry) Resolve(sagaID uuid.UUID, err error) {
+	r.mu.Lock()
+	ch, ok := r.chans[sagaID]
 	if ok {
-		delete(r.chans, id)
+		delete(r.chans, sagaID)
 	}
 	r.mu.Unlock()
 	if ok {

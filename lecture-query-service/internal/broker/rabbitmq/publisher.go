@@ -38,7 +38,7 @@ func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpCon
 	}
 	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
 	if err != nil {
-		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+		return fmt.Errorf("create requester for queue %s: %w", queueName, err)
 	}
 	b.Requesters[queueName] = requester
 	return nil
@@ -67,7 +67,7 @@ func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaI
 		IdempotentKey: uuid.New(),
 		SagaID:        sagaID,
 		Method:        method,
-		TimeStamp:     time.Now().UTC(),
+		Timestamp:     time.Now().UTC(),
 		Body:          bodyBytes,
 	})
 	if err != nil {

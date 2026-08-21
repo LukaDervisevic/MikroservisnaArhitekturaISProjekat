@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/Azure/go-amqp"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
@@ -21,6 +23,7 @@ import (
 
 type Message struct {
 	IdempotentKey uuid.UUID       `json:"idempotentKey"`
+	SagaID        uuid.UUID       `json:"sagaId"`
 	Method        string          `json:"method"`
 	Body          json.RawMessage `json:"body"`
 	TimeStamp     time.Time
@@ -39,16 +42,22 @@ type DeadLetter struct {
 	CreatedAt time.Time
 }
 
+// sagaTimeout bounds the wait for lecture-query-service. It stays below the
+// initiator's timeout so a stall surfaces here rather than at every hop at once.
+const sagaTimeout = 10 * time.Second
+
 type ConsumerConn struct {
-	seen         map[uuid.UUID]struct{}
-	mu           sync.RWMutex
-	Environment  *rmq.Environment
-	Connection   *rmq.AmqpConnection
-	responders   map[string]rmq.Responder
-	db           *gorm.DB
-	eventRepo    repo.IEventWriteRepo
-	lecturerRepo repo.ILecturerWriteRepo
-	sagaReplies  *saga.SagaReplyRegistry
+	seen          map[uuid.UUID]struct{}
+	mu            sync.RWMutex
+	Environment   *rmq.Environment
+	Connection    *rmq.AmqpConnection
+	responders    map[string]rmq.Responder
+	db            *gorm.DB
+	eventRepo     repo.IEventWriteRepo
+	lecturerRepo  repo.ILecturerWriteRepo
+	lectureRepo   *repo.LectureRepo
+	sagaReplies   *saga.SagaReplyRegistry
+	publisherConn *PublisherConn
 }
 
 func NewConsumerConn(
@@ -58,7 +67,9 @@ func NewConsumerConn(
 	db *gorm.DB,
 	eventRepo repo.IEventWriteRepo,
 	lecturerRepo repo.ILecturerWriteRepo,
+	lectureRepo *repo.LectureRepo,
 	sagaReplies *saga.SagaReplyRegistry,
+	publisherConn *PublisherConn,
 ) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
@@ -67,14 +78,16 @@ func NewConsumerConn(
 	}
 
 	return &ConsumerConn{
-		seen:         make(map[uuid.UUID]struct{}),
-		Environment:  env,
-		Connection:   conn,
-		responders:   make(map[string]rmq.Responder),
-		db:           db,
-		eventRepo:    eventRepo,
-		lecturerRepo: lecturerRepo,
-		sagaReplies:  sagaReplies,
+		seen:          make(map[uuid.UUID]struct{}),
+		Environment:   env,
+		Connection:    conn,
+		responders:    make(map[string]rmq.Responder),
+		db:            db,
+		eventRepo:     eventRepo,
+		lecturerRepo:  lecturerRepo,
+		lectureRepo:   lectureRepo,
+		sagaReplies:   sagaReplies,
+		publisherConn: publisherConn,
 	}, nil
 }
 
@@ -128,11 +141,16 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 		return b.dispatch(ctx, tx, msg)
 	})
 
+	if isDuplicateKey(err) {
+		b.remember(msg.IdempotentKey)
+		return nil, nil // committed by someone else; still a success
+	}
+
+	// Reply upstream only once the local tx has resolved, so we never report a
+	// commit for a transaction that then failed to commit.
+	b.replyUpstream(ctx, msg, err)
+
 	if err != nil {
-		if isDuplicateKey(err) {
-			b.remember(msg.IdempotentKey)
-			return nil, nil // committed by someone else; still a success
-		}
 		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
 		return nil, err // rolled back, safe to redeliver
 	}
@@ -140,6 +158,27 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 	b.remember(msg.IdempotentKey)
 	log.Info().Msgf("processed %s for message %s", msg.Method, msg.IdempotentKey)
 	return nil, nil
+}
+
+// replyUpstream tells the previous service in the saga chain whether this
+// service committed its own change.
+func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr error) {
+	var replyQueue, replyMethod string
+	switch msg.Method {
+	case "UpdateLecturerSAGA":
+		replyQueue, replyMethod = os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"), "UpdateLecturerSAGAReply"
+	default:
+		return
+	}
+
+	reply := model.CommitReply()
+	if txErr != nil {
+		reply = model.RollbackReply(txErr)
+	}
+
+	if err := b.publisherConn.PublishSaga(ctx, replyQueue, msg.SagaID, replyMethod, reply); err != nil {
+		log.Error().Err(err).Msgf("failed to reply to saga %s on queue %s", msg.SagaID, replyQueue)
+	}
 }
 
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
@@ -189,8 +228,67 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 		}
 		return lecturers.DeleteLecturer(ctx, lecturer.Id)
 
+	// Middle of the saga chain: apply the change locally, then hand the saga to
+	// lecture-query-service. Returning an error here rolls this tx back, and
+	// handle() turns that into a rollback reply for lecturer-service.
+	case "UpdateLecturerSAGA":
+		lecturer, err := decode[model.Lecturer](msg.Body)
+		if err != nil {
+			return err
+		}
+		if err := lecturers.UpdateLecturer(ctx, lecturer); err != nil {
+			return fmt.Errorf("update lecturer replica: %w", err)
+		}
+
+		// Rebuild the read-model rows this lecturer appears on. Reading through
+		// tx is what makes the projections carry the update applied just above.
+		lectures, err := b.lectureRepo.WithTx(tx).ListAllLecturesByLecturerID(ctx, lecturer.Id)
+		if err != nil {
+			return fmt.Errorf("list lectures for lecturer %d: %w", lecturer.Id, err)
+		}
+
+		projections := make([]*model.LectureQuery, 0, len(lectures))
+		for i := range lectures {
+			projection := mapper.MapLectureToQuery(&lectures[i])
+			if projection == nil {
+				return fmt.Errorf("lecture %d is missing event or lecturer data", lectures[i].LectureID)
+			}
+			projections = append(projections, projection)
+		}
+
+		return b.awaitDownstream(ctx, msg.SagaID,
+			os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE"),
+			"UpdateLectureQuerySAGA", projections)
+
+	case "UpdateLectureQuerySAGAReply":
+		reply, err := decode[model.SagaReply](msg.Body)
+		if err != nil {
+			return err
+		}
+		b.sagaReplies.Resolve(msg.SagaID, reply.Err())
+		return nil
+
 	default:
 		return fmt.Errorf("unknown method: %s", msg.Method)
+	}
+}
+
+// awaitDownstream forwards the saga to the next service and blocks until that
+// service reports back. The reply arrives on a different queue served by its own
+// responder goroutine, so this wait cannot deadlock the reply path.
+func (b *ConsumerConn) awaitDownstream(ctx context.Context, sagaID uuid.UUID, queue, method string, body any) error {
+	ch := b.sagaReplies.Register(sagaID)
+	defer b.sagaReplies.Unregister(sagaID)
+
+	if err := b.publisherConn.PublishSaga(ctx, queue, sagaID, method, body); err != nil {
+		return fmt.Errorf("dispatch %s: %w", method, err)
+	}
+
+	select {
+	case err := <-ch:
+		return err
+	case <-time.After(sagaTimeout):
+		return fmt.Errorf("timed out waiting for %s reply", method)
 	}
 }
 

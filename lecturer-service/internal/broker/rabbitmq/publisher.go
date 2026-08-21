@@ -2,9 +2,12 @@ package rabbitmq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/Azure/go-amqp"
+	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
@@ -49,4 +52,27 @@ func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName stri
 	msg.Header = &amqp.MessageHeader{Durable: durable}
 	_, err := b.Requesters[queueName].Publish(ctx, msg)
 	return err
+}
+
+// PublishSaga wraps body in a Message envelope carrying sagaID and publishes it.
+// sagaID is propagated unchanged along the whole saga chain so every participant
+// can correlate the reply that travels back to it.
+func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaID uuid.UUID, method string, body any) error {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal saga body for %s: %w", method, err)
+	}
+
+	payload, err := json.Marshal(Message{
+		IdempotentKey: uuid.New(),
+		SagaID:        sagaID,
+		Method:        method,
+		TimeStamp:     time.Now().UTC(),
+		Body:          bodyBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal saga envelope for %s: %w", method, err)
+	}
+
+	return b.Publish(ctx, payload, queueName, true)
 }
