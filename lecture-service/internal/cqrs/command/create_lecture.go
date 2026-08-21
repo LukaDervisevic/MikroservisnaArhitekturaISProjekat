@@ -37,11 +37,11 @@ func (c CreateLectureCommand) Validate() error {
 }
 
 type CreateLectureHandler struct {
-	db           *gorm.DB
-	lectureRepo  repo.ILectureWriteRepo
-	eventRepo    repo.IEventReadRepo
-	lecturerRepo repo.ILecturerReadRepo
-	brokerConn   *rabbitmq.BrokerClientConn
+	db            *gorm.DB
+	lectureRepo   repo.ILectureWriteRepo
+	eventRepo     repo.IEventReadRepo
+	lecturerRepo  repo.ILecturerReadRepo
+	publisherConn *rabbitmq.PublisherConn
 }
 
 func NewCreateLectureHandler(
@@ -49,13 +49,13 @@ func NewCreateLectureHandler(
 	lectureRepo repo.ILectureWriteRepo,
 	eventRepo repo.IEventReadRepo,
 	lecturerRepo repo.ILecturerReadRepo,
-	brokerConn *rabbitmq.BrokerClientConn) *CreateLectureHandler {
+	brokerConn *rabbitmq.PublisherConn) *CreateLectureHandler {
 	return &CreateLectureHandler{
-		db:           db,
-		lectureRepo:  lectureRepo,
-		eventRepo:    eventRepo,
-		lecturerRepo: lecturerRepo,
-		brokerConn:   brokerConn}
+		db:            db,
+		lectureRepo:   lectureRepo,
+		eventRepo:     eventRepo,
+		lecturerRepo:  lecturerRepo,
+		publisherConn: brokerConn}
 }
 
 func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureCommand) (*model.Lecture, error) {
@@ -110,7 +110,7 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			return status.Error(codes.Internal, "failed to marshal payload")
 		}
 
-		err = h.brokerConn.Publish(ctx, payload, true)
+		err = h.publisherConn.Publish(ctx, payload, "RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE", true)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to publish message with id %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish message")

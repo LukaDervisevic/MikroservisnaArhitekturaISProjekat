@@ -12,6 +12,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
@@ -19,7 +20,6 @@ import (
 )
 
 func main() {
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -32,46 +32,48 @@ func main() {
 		panic("Unable to connect to lecture service database")
 	}
 
+	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
+
+	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create publisher connection")
+	}
+
+	sagaReplies := saga.NewSagaReplyRegistry()
+	lectureRepo := repo.NewLectureRepo(conn)
+	eventRepo := repo.NewEventRepo(conn)
+	lecturerRepo := repo.NewLecturerRepo(conn)
+
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo, sagaReplies)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create consumer connection")
+	}
+
+	if err := consumerConn.NewQueueResponder(ctx, "lecture-events"); err != nil {
+		log.Fatal().Err(err).Msg("failed to start lecture-events responder")
+	}
+	if err := consumerConn.NewQueueResponder(ctx, "lecturers"); err != nil {
+		log.Fatal().Err(err).Msg("failed to start lecturers responder")
+	}
+
 	port := os.Getenv("LECTURE_SERVICE_PORT")
 	listener, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to listen on specified port")
-		return
 	}
 
 	grpcServer := grpc.NewServer()
-	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(ctx, conn))
+	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(conn, publisherConn, sagaReplies, lectureRepo, eventRepo, lecturerRepo))
 
 	go func() {
 		log.Printf("starting lecture service grpc server on port %v...", port)
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatal().Err(err).Msg("failed to server grpc request")
+			log.Fatal().Err(err).Msg("failed to serve grpc request")
 			cancel()
 		}
 	}()
 
-	var lecturerConsumerConn rabbitmq.ConsumerConn
-
-	go func(brokerURI string, queue string) {
-		eventRepo := repo.NewEventRepo(conn)
-		lecturerRepo := repo.NewLecturerRepo(conn)
-		broker, _ := rabbitmq.NewBrokerServerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo)
-
-		if err := broker.NewQueueResponder(ctx, "lecture-events"); err != nil {
-			return
-		}
-		if err := broker.NewQueueResponder(ctx, "lecturers"); err != nil {
-			return
-		}
-
-	}(
-		os.Getenv("RABBITMQ_BROKER_URI"),
-		os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"),
-	)
-
 	go func() {
-		brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
-
 		env := rmq.NewEnvironment(brokerURI, nil)
 		mailConn, err := env.NewConnection(ctx)
 		if err != nil {
@@ -99,11 +101,9 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	defer func() { _ = lecturerConsumerConn.Environment.CloseConnections(ctx) }()
-	defer func() { _ = lecturerConsumerConn.Connection.Close(ctx) }()
-
-	log.Info().Msg("Shutting down lectuer gRPC server...")
+	log.Info().Msg("Shutting down lecture gRPC server...")
 	grpcServer.GracefulStop()
-	log.Info().Msg("Lecturer gRPC server stopped.")
-
+	_ = consumerConn.Connection.Close(ctx)
+	_ = consumerConn.Environment.CloseConnections(ctx)
+	log.Info().Msg("Lecture gRPC server stopped.")
 }

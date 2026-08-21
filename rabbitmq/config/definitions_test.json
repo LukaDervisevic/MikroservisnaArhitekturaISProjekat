@@ -17,7 +17,16 @@
     { "name": "lecturer.retry","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
     { "name": "lecturer.final-dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
     { "name": "mail", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
-    { "name": "event-query", "vhost":  "/", "durable":  true, "auto_delete":  false, "arguments":  {}}
+    { "name": "event-query", "vhost":  "/", "durable":  true, "auto_delete":  false, "arguments":  {}},
+    { "name":  "lecturer-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+
+    { "name": "event-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "reply-to-event", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+
+    { "name": "lecturer-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "lecture-query", "vhost":  "/", "durable":  true, "auto_delete": false, "arguments":  {}},
+    { "name": "reply-to-lecturer", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "reply-to-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
   ],
   "bindings": [
     {

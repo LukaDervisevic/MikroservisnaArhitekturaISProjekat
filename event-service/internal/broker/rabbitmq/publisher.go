@@ -16,32 +16,33 @@ type Message struct {
 	IdempotentKey uuid.UUID
 	Method        string
 	Body          json.RawMessage
-	CreatedAt     time.Time
+	TimeStamp     time.Time
 	Retries       int
 }
 
-type BrokerClientConn struct {
+type PublisherConn struct {
 	BrokerURI   string
 	Environment *rmq.Environment
 	Connection  *rmq.AmqpConnection
-	Requester   rmq.Requester
+	Requesters  map[string]rmq.Requester
 }
 
-func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) *BrokerClientConn {
+func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) *PublisherConn {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
 		return nil
 	}
 	log.Info().Msgf("RabbitMQ client connection %s started at %s", conn.Id(), brokerURI)
-	return &BrokerClientConn{
+	return &PublisherConn{
 		BrokerURI:   brokerURI,
 		Environment: env,
 		Connection:  conn,
+		Requesters:  make(map[string]rmq.Requester),
 	}
 }
 
-func (b *BrokerClientConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
+func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
 	if conn == nil {
 		return
 	}
@@ -49,18 +50,18 @@ func (b *BrokerClientConn) NewQueueRequester(ctx context.Context, conn *rmq.Amqp
 	if err != nil {
 		return
 	}
-	b.Requester = requester
+	b.Requesters[queueName] = requester
 }
 
-func (b *BrokerClientConn) Publish(ctx context.Context, body []byte, durable bool) error {
-	if b == nil || b.Requester == nil {
+func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {
+	if b == nil || b.Requesters[queueName] == nil {
 		return fmt.Errorf("rabbitmq requester is not initialized")
 	}
 
 	msg := rmq.NewMessage(body)
 	msg.Header = &amqp.MessageHeader{Durable: durable}
 	log.Info().Msg("publishing message to queue...")
-	_, err := b.Requester.Publish(ctx, msg)
+	_, err := b.Requesters[queueName].Publish(ctx, msg)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to publish message to queue")
 	}

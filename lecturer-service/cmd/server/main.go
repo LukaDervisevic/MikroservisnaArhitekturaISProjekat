@@ -50,9 +50,9 @@ func main() {
 	<-stop
 
 	log.Info().Msgf("shutting down rabbitmq lecturer client...")
-	defer func() { _ = lecturerServer.BrokerConn.Environment.CloseConnections(ctx) }()
-	defer func() { _ = lecturerServer.BrokerConn.Requester.Close(ctx) }()
-	defer func() { _ = lecturerServer.BrokerConn.Connection.Close(ctx) }()
+	defer func() { _ = lecturerServer.PublisherConn.Environment.CloseConnections(ctx) }()
+	//defer func() { _ = lecturerServer.BrokerConn.Requester.Close(ctx) }()
+	defer func() { _ = lecturerServer.PublisherConn.Connection.Close(ctx) }()
 	log.Info().Msgf("successfully shut down rabbitmq connection")
 
 	log.Info().Msg("Shutting down lecturer gRPC server...")

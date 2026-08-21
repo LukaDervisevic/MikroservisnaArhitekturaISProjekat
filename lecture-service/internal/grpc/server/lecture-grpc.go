@@ -3,13 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
 	eventpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	lecturepb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	lecturerpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer"
@@ -23,8 +23,6 @@ import (
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	createLectureHandler *command.CreateLectureHandler
 	updateLectureHandler *command.UpdateLectureHandler
 	deleteLectureHandler *command.DeleteLectureHandler
@@ -32,18 +30,18 @@ type GrpcServer struct {
 	lecturepb.UnimplementedLectureServiceServer
 }
 
-func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
-	lectureRepo := repo.NewLectureRepo(db)
-	lecturerRepo := repo.NewLecturerRepo(db)
-	eventRepo := repo.NewEventRepo(db)
-	brokerConn := rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-
+func NewGrpcServer(
+	db *gorm.DB,
+	publisherConn *rabbitmq.PublisherConn,
+	sagaReplies *saga.SagaReplyRegistry,
+	lectureRepo *repo.LectureRepo,
+	eventRepo *repo.EventRepo,
+	lecturerRepo *repo.LecturerRepo,
+) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
-		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, brokerConn),
-		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, lectureRepo, brokerConn),
-		deleteLectureHandler: command.NewDeleteLectureHandler(lectureRepo, lectureRepo),
+		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn),
+		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, lectureRepo, publisherConn, sagaReplies),
+		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, lectureRepo, publisherConn),
 	}
 }
 

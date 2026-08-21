@@ -2,11 +2,14 @@ package command
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -23,10 +26,10 @@ type CreateLecturerCommand struct {
 type CreateLecturerHandler struct {
 	db           *gorm.DB
 	lecturerRepo *repo.LecturerRepo
-	outboxRepo   *repo.OutboxRepo
+	outboxRepo   *outbox.OutboxRepo
 }
 
-func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo *repo.LecturerRepo, outboxRepo *repo.OutboxRepo) *CreateLecturerHandler {
+func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo *repo.LecturerRepo, outboxRepo *outbox.OutboxRepo) *CreateLecturerHandler {
 	return &CreateLecturerHandler{db: db, lecturerRepo: lecturerRepo, outboxRepo: outboxRepo}
 }
 
@@ -43,9 +46,14 @@ func (h *CreateLecturerHandler) Handle(ctx context.Context, cmd CreateLecturerCo
 			return err
 		}
 
+		lecturerBytes, err := json.Marshal(lecturer)
+		if err != nil {
+			return errors.New("unable to marshal lecturer")
+		}
+
 		outboxMsg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
-			Body:          *lecturer,
+			Body:          lecturerBytes,
 			Method:        "CreateLecturer",
 			TimeStamp:     time.Now(),
 			Retries:       0,

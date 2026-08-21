@@ -3,61 +3,50 @@ package rabbitmq
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Azure/go-amqp"
-	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
-	"github.com/rs/zerolog/log"
 )
 
-type Message struct {
-	IdempotentKey uuid.UUID
-	Body          interface{}
-	Method        string
-	TimeStamp     time.Time
-	Retries       int
-}
-
-type BrokerPublisherConn struct {
+type PublisherConn struct {
 	BrokerURI   string
 	Environment *rmq.Environment
 	Connection  *rmq.AmqpConnection
-	Requester   rmq.Requester
+	Requesters  map[string]rmq.Requester
 }
 
-func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) *BrokerPublisherConn {
+func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) (*PublisherConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	log.Info().Msgf("RabbitMQ client connection %s started at %s", conn.Id(), brokerURI)
-	return &BrokerPublisherConn{
+	return &PublisherConn{
 		BrokerURI:   brokerURI,
 		Environment: env,
 		Connection:  conn,
-	}
+		Requesters:  make(map[string]rmq.Requester),
+	}, nil
 }
 
-func (b *BrokerPublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
+func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
 	if conn == nil {
-		return
+		return fmt.Errorf("publisher connection is nil to queue %s", queueName)
 	}
 	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
 	if err != nil {
-		return
+		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
 	}
-	b.Requester = requester
+	b.Requesters[queueName] = requester
+	return nil
 }
 
-func (b *BrokerPublisherConn) Publish(ctx context.Context, body []byte, durable bool) error {
-	if b == nil || b.Requester == nil {
+func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {
+	if b == nil || b.Requesters[queueName] == nil {
 		return fmt.Errorf("rabbitmq requester is not initialized")
 	}
-
 	msg := rmq.NewMessage(body)
 	msg.Header = &amqp.MessageHeader{Durable: durable}
-	_, err := b.Requester.Publish(ctx, msg)
+	_, err := b.Requesters[queueName].Publish(ctx, msg)
 	return err
 }

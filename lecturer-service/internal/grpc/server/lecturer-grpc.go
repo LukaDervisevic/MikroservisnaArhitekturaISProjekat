@@ -11,8 +11,8 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/query"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/scheduler"
-	"github.com/google/uuid"
+	outbox2 "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/outbox"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -20,7 +20,6 @@ import (
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service" // still needed for OutboxProcessor
 	lecturerpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -37,10 +36,9 @@ type GrpcServer struct {
 	listLecturersHandler     *query.ListLecturersHandler
 
 	lecturerpb.UnimplementedLecturerServiceServer
-	BrokerConn      rabbitmq.BrokerPublisherConn
-	scheduler       *scheduler.Scheduler
-	outboxProcessor *service.OutboxProcessor
-	MailPublisher   rabbitmq.MailPublisher
+	PublisherConn   rabbitmq.PublisherConn
+	ConsumerConn    rabbitmq.ConsumerConn
+	outboxProcessor *outbox.OutboxProcessor
 }
 
 var maxTries = 5
@@ -55,35 +53,44 @@ func isRetriable(grpcCode codes.Code) bool {
 
 func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	lecturerRepo := repo.NewLecturerRepo(db)
-	outboxRepo := repo.NewOutboxRepo(db)
+	outboxRepo := outbox2.NewOutboxRepo(db)
 
+	var consumerConn *rabbitmq.ConsumerConn
+	var publisherConn *rabbitmq.PublisherConn
+	var err error
+	consumerConn, err = rabbitmq.NewConsumerConn(ctx, os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"), nil, db, *lecturerRepo)
+	publisherConn, err = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), nil)
+
+	if err != nil {
+		log.Err(err).Msg("unable to create grpc server")
+		return nil
+	}
 	createHandler := command.NewCreateLecturerHandler(db, lecturerRepo, outboxRepo)
-	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo)
+	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, consumerConn)
 	deleteHandler := command.NewDeleteLecturerHandler(lecturerRepo)
 	getByIDHandler := query.NewGetLecturerByIDHandler(lecturerRepo)
 	getByNameHandler := query.NewGetLecturerByNameHandler(lecturerRepo)
 	listHandler := query.NewListLecturersHandler(lecturerRepo)
 
-	var lecturerBrokerConn *rabbitmq.BrokerPublisherConn
-	var lecturerScheduler *scheduler.Scheduler
-	var mailPublisher *rabbitmq.MailPublisher
-	var err error
-	sendQueue := os.Getenv("RABBIT_LECTURE_QUEUE")
+	//var lecturerBrokerConn *rabbitmq.PublisherConn
+	//var lecturerScheduler *scheduler.Scheduler
+	//var mailPublisher *rabbitmq.MailPublisher
+	//sendQueue := os.Getenv("RABBIT_LECTURE_QUEUE")
+	//
+	//lecturerBrokerConn = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
+	//if lecturerBrokerConn == nil {
+	//	log.Fatal().Msg("unable to connect to create rabbitmq connection")
+	//} else {
+	//	lecturerBrokerConn.NewQueueRequester(ctx, lecturerBrokerConn.Connection, sendQueue)
+	//	lecturerScheduler = scheduler.NewScheduler(10, 100)
+	//
+	//	ailPublisher, err = rabbitmq.NewMailPublisher(ctx, lecturerBrokerConn.Connection, os.Getenv("RABBITMQ_LECTURE_MAIL_QUEUE"))
+	//	if err != nil || mailPublisher == nil {
+	//		return nil
+	//	}m
+	//}
 
-	lecturerBrokerConn = rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-	if lecturerBrokerConn == nil {
-		log.Fatal().Msg("unable to connect to create rabbitmq connection")
-	} else {
-		lecturerBrokerConn.NewQueueRequester(ctx, lecturerBrokerConn.Connection, sendQueue)
-		lecturerScheduler = scheduler.NewScheduler(10, 100)
-
-		mailPublisher, err = rabbitmq.NewMailPublisher(ctx, lecturerBrokerConn.Connection, os.Getenv("RABBITMQ_LECTURE_MAIL_QUEUE"))
-		if err != nil || mailPublisher == nil {
-			return nil
-		}
-	}
-
-	outboxProcessor := service.NewOutboxProcessor(db, outboxRepo, lecturerBrokerConn)
+	outboxProcessor := outbox.NewOutboxProcessor(db, outboxRepo, publisherConn)
 	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
 	env := os.Getenv("ENVIRONMENT")
@@ -155,12 +162,10 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 		getLecturerByNameHandler: getByNameHandler,
 		listLecturersHandler:     listHandler,
 
-		scheduler:       lecturerScheduler,
 		outboxProcessor: outboxProcessor,
-		MailPublisher:   *mailPublisher,
 	}
-	if lecturerBrokerConn != nil {
-		grpcServer.BrokerConn = *lecturerBrokerConn
+	if publisherConn != nil {
+		grpcServer.PublisherConn = *publisherConn
 	}
 
 	return grpcServer
@@ -289,26 +294,26 @@ func (g *GrpcServer) DeleteLecturer(ctx context.Context, req *lecturerpb.DeleteL
 	return &lecturerpb.DeleteLecturerResponse{Lecturer: lecturerModelToProto(lecturer)}, nil
 }
 
-func (g *GrpcServer) SendEmail(ctx context.Context, req *lecturerpb.SendEmailRequest) (*emptypb.Empty, error) {
-	if req == nil || req.To == "" || req.Subject == "" {
-		return nil, status.Error(codes.InvalidArgument, "to and subject are required")
-	}
-
-	email := model.EmailMessage{
-		IdempotentKey: uuid.New(),
-		To:            req.To,
-		Subject:       req.Subject,
-		Body:          req.Body,
-		RetryCount:    0,
-		ForceFail:     req.ForceFail, // demo flag
-	}
-
-	if err := g.MailPublisher.PublishEmail(ctx, email); err != nil {
-		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to enqueue email: %v", err))
-	}
-
-	return &emptypb.Empty{}, nil
-}
+//func (g *GrpcServer) SendEmail(ctx context.Context, req *lecturerpb.SendEmailRequest) (*emptypb.Empty, error) {
+//	if req == nil || req.To == "" || req.Subject == "" {
+//		return nil, status.Error(codes.InvalidArgument, "to and subject are required")
+//	}
+//
+//	email := model.EmailMessage{
+//		IdempotentKey: uuid.New(),
+//		To:            req.To,
+//		Subject:       req.Subject,
+//		Body:          req.Body,
+//		RetryCount:    0,
+//		ForceFail:     req.ForceFail, // demo flag
+//	}
+//
+//	if err := g.MailPublisher.PublishEmail(ctx, email); err != nil {
+//		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to enqueue email: %v", err))
+//	}
+//
+//	return &emptypb.Empty{}, nil
+//}
 
 func lecturerModelToProto(l *model.Lecturer) *lecturerpb.Lecturer {
 	if l == nil {

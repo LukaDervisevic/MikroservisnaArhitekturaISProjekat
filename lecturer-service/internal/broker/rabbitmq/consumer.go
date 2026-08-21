@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Azure/go-amqp"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
@@ -20,10 +20,10 @@ import (
 )
 
 type Message struct {
-	IdempotentKey uuid.UUID       `json:"idempotentKey"`
-	Method        string          `json:"method"`
-	Body          json.RawMessage `json:"body"`
+	IdempotentKey uuid.UUID `json:"idempotentKey"`
+	Method        string    `json:"method"`
 	TimeStamp     time.Time
+	Body          json.RawMessage `json:"body"`
 	Retries       int
 }
 
@@ -41,24 +41,24 @@ type DeadLetter struct {
 
 type ConsumerConn struct {
 	seen         map[uuid.UUID]struct{}
-	mu           sync.RWMutex
+	mutex        sync.RWMutex
 	Environment  *rmq.Environment
 	Connection   *rmq.AmqpConnection
 	responders   map[string]rmq.Responder
 	db           *gorm.DB
-	eventRepo    repo.IEventWriteRepo
-	lecturerRepo repo.ILecturerWriteRepo
+	lecturerRepo repo.LecturerRepo
 	sagaReplies  *saga.SagaReplyRegistry
 }
+
+var sagaRollbackError = errors.New("lecture rollback error")
+var sagaNilReferenceError = errors.New("saga nil reference error")
 
 func NewConsumerConn(
 	ctx context.Context,
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	eventRepo repo.IEventWriteRepo,
-	lecturerRepo repo.ILecturerWriteRepo,
-	sagaReplies *saga.SagaReplyRegistry,
+	lecturerRepo repo.LecturerRepo,
 ) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
@@ -72,9 +72,8 @@ func NewConsumerConn(
 		Connection:   conn,
 		responders:   make(map[string]rmq.Responder),
 		db:           db,
-		eventRepo:    eventRepo,
 		lecturerRepo: lecturerRepo,
-		sagaReplies:  sagaReplies,
+		sagaReplies:  saga.NewSagaReplyRegistry(),
 	}, nil
 }
 
@@ -107,9 +106,9 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 
 	log.Info().Msgf("received message %s (%s)", msg.IdempotentKey, msg.Method)
 
-	b.mu.RLock()
+	b.mutex.RLock()
 	_, cached := b.seen[msg.IdempotentKey]
-	b.mu.RUnlock()
+	b.mutex.RUnlock()
 	if cached {
 		log.Info().Msgf("message %s already processed, acking", msg.IdempotentKey)
 		return nil, nil
@@ -143,51 +142,23 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 }
 
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
-	events := b.eventRepo.WithTx(tx)
-	lecturers := b.lecturerRepo.WithTx(tx)
 
 	switch msg.Method {
-	case "CreateEvent":
-		event, err := decode[model.Event](msg.Body)
+	case "UpdateLecturerSAGAReply":
+		sagaReply, err := decode[model.SagaLectureReply](msg.Body)
 		if err != nil {
 			return err
 		}
-		return events.CreateEvent(ctx, event)
+		if sagaReply == nil {
+			return sagaNilReferenceError
+		}
 
-	case "UpdateEvent":
-		event, err := decode[model.Event](msg.Body)
-		if err != nil {
-			return err
+		var resolveErr error
+		if !sagaReply.IsCommit {
+			resolveErr = sagaRollbackError
 		}
-		return events.UpdateEvent(ctx, event)
-
-	case "DeleteEvent":
-		event, err := decode[model.Event](msg.Body)
-		if err != nil {
-			return err
-		}
-		return events.DeleteEvent(ctx, event.Id)
-
-	case "CreateLecturer":
-		lecturer, err := decode[model.Lecturer](msg.Body)
-		if err != nil {
-			return err
-		}
-		return lecturers.CreateLecturer(ctx, lecturer)
-
-	case "UpdateLecturer":
-		lecturer, err := decode[model.Lecturer](msg.Body)
-		if err != nil {
-			return err
-		}
-		return lecturers.UpdateLecturer(ctx, lecturer)
-
-	case "DeleteLecturer":
-		lecturer, err := decode[model.Lecturer](msg.Body)
-		if err != nil {
-			return err
-		}
-		return lecturers.DeleteLecturer(ctx, lecturer.Id)
+		b.sagaReplies.Resolve(sagaReply.Lecturer.Id, resolveErr)
+		return nil
 
 	default:
 		return fmt.Errorf("unknown method: %s", msg.Method)
@@ -203,9 +174,9 @@ func decode[T any](raw json.RawMessage) (*T, error) {
 }
 
 func (b *ConsumerConn) remember(key uuid.UUID) {
-	b.mu.Lock()
+	b.mutex.Lock()
 	b.seen[key] = struct{}{}
-	b.mu.Unlock()
+	b.mutex.Unlock()
 }
 
 const pgUniqueViolation = "23505"
@@ -215,7 +186,6 @@ func isDuplicateKey(err error) bool {
 		return false
 	}
 
-	// Works when gorm.Config{TranslateError: true} is set.
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return true
 	}

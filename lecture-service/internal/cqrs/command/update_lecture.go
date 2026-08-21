@@ -3,12 +3,14 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -39,7 +41,8 @@ type UpdateLectureHandler struct {
 	lectureWriteRepo repo.ILectureWriteRepo
 	lectureReadRepo  repo.ILectureReadRepo
 	eventRepo        repo.IEventReadRepo
-	brokerConn       *rabbitmq.BrokerClientConn
+	publisherConn    *rabbitmq.PublisherConn
+	sagaReplies      *saga.SagaReplyRegistry
 }
 
 func NewUpdateLectureHandler(
@@ -47,16 +50,22 @@ func NewUpdateLectureHandler(
 	lectureWriteRepo repo.ILectureWriteRepo,
 	eventRepo repo.IEventReadRepo,
 	lectureReadRepo repo.ILectureReadRepo,
-	brokerConn *rabbitmq.BrokerClientConn) *UpdateLectureHandler {
+	brokerConn *rabbitmq.PublisherConn,
+	sagaReplies *saga.SagaReplyRegistry,
+) *UpdateLectureHandler {
 	return &UpdateLectureHandler{
 		db:               db,
 		lectureWriteRepo: lectureWriteRepo,
 		eventRepo:        eventRepo,
 		lectureReadRepo:  lectureReadRepo,
-		brokerConn:       brokerConn}
+		publisherConn:    brokerConn,
+		sagaReplies:      sagaReplies,
+	}
 }
 
-func (h *UpdateLectureHandler) Handle(ctx context.Context, cmd UpdateLectureCommand) (*model.Lecture, error) {
+func (h *UpdateLectureHandler) Handle(
+	ctx context.Context,
+	cmd UpdateLectureCommand) (*model.Lecture, error) {
 	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
@@ -82,33 +91,26 @@ func (h *UpdateLectureHandler) Handle(ctx context.Context, cmd UpdateLectureComm
 	lecture.Duration = cmd.Duration
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		ch := h.sagaReplies.Register(lecture.LectureID)
+
+		go func() {
+			if err := h.sendUpdateEvent(ctx, *lecture); err != nil {
+				h.sagaReplies.Resolve(lecture.LectureID, err)
+			}
+		}()
+
+		var sagaErr error
+		select {
+		case sagaErr = <-ch:
+		case <-time.After(10 * time.Second):
+			sagaErr = errors.New("saga reply timeout")
+		}
+		if sagaErr != nil {
+			return status.Error(codes.Internal, "saga failed: "+sagaErr.Error())
+		}
+
 		if err := h.lectureWriteRepo.UpdateLecture(ctx, lecture); err != nil {
 			return status.Error(codes.Internal, "failed to update lecture")
-		}
-
-		lectureQueryBytes, err := json.Marshal(mapper.MapLectureToQuery(lecture))
-		if err != nil {
-			return status.Error(codes.Internal, "failed to marshal lecture query")
-		}
-
-		msg := rabbitmq.Message{
-			IdempotentKey: uuid.New(),
-			Body:          lectureQueryBytes,
-			Method:        "UpdateLectureQuery",
-			TimeStamp:     time.Now(),
-			Retries:       0,
-		}
-
-		payload, err := json.Marshal(msg)
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-			return status.Error(codes.Internal, "failed to marshal lecture")
-		}
-
-		err = h.brokerConn.Publish(ctx, payload, true)
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-			return status.Error(codes.Internal, "failed to marshal lecture")
 		}
 
 		return nil
@@ -118,4 +120,35 @@ func (h *UpdateLectureHandler) Handle(ctx context.Context, cmd UpdateLectureComm
 	}
 
 	return lecture, nil
+}
+
+func (h *UpdateLectureHandler) sendUpdateEvent(ctx context.Context, lecturer model.Lecture) error {
+
+	lectureQueryBytes, err := json.Marshal(lecturer)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal lecture with id %d", lecturer.LectureID)
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
+	msg := rabbitmq.Message{
+		IdempotentKey: uuid.New(),
+		Body:          lectureQueryBytes,
+		Method:        "UpdateLecturerQuerySAGA",
+		TimeStamp:     time.Now(),
+		Retries:       0,
+	}
+
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
+	err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUEUE"), true)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
+	return nil
 }

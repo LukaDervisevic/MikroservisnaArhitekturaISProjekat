@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
@@ -41,10 +42,10 @@ type UpdateEventHandler struct {
 	db               *gorm.DB
 	eventCommandRepo repo.IEventCommandRepo
 	locationReadRepo repo.ILocationReadRepo
-	broker           *rabbitmq.BrokerClientConn
+	broker           *rabbitmq.PublisherConn
 }
 
-func NewUpdateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.BrokerClientConn) *UpdateEventHandler {
+func NewUpdateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.PublisherConn) *UpdateEventHandler {
 	return &UpdateEventHandler{db: db, eventCommandRepo: eventWriteRepo, locationReadRepo: locationReadRepo, broker: broker}
 }
 
@@ -62,7 +63,6 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 	}
 
 	location, err := h.locationReadRepo.GetLocationByID(ctx, cmd.LocationID)
-
 	event := &model.Event{
 		Id:              cmd.Id,
 		Name:            cmd.Name,
@@ -87,7 +87,7 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 			IdempotentKey: uuid.New(),
 			Body:          eventWithLocationQuery,
 			Method:        "UpdateEventWithLocation",
-			CreatedAt:     time.Now(),
+			TimeStamp:     time.Now(),
 			Retries:       0,
 		}
 
@@ -98,7 +98,7 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
-		err = h.broker.Publish(ctx, msgByte, true)
+		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_TO_EVENT_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event to query service")

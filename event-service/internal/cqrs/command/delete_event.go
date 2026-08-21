@@ -31,10 +31,10 @@ func (c DeleteEventCommand) Validate() error {
 type DeleteEventHandler struct {
 	db               *gorm.DB
 	eventCommandRepo repo.IEventCommandRepo
-	broker           *rabbitmq.BrokerClientConn
+	broker           *rabbitmq.PublisherConn
 }
 
-func NewDeleteEventHandler(db *gorm.DB, eventCommandRepo repo.IEventCommandRepo, broker *rabbitmq.BrokerClientConn) *DeleteEventHandler {
+func NewDeleteEventHandler(db *gorm.DB, eventCommandRepo repo.IEventCommandRepo, broker *rabbitmq.PublisherConn) *DeleteEventHandler {
 	return &DeleteEventHandler{db: db, eventCommandRepo: eventCommandRepo, broker: broker}
 }
 
@@ -64,7 +64,7 @@ func (h *DeleteEventHandler) Handle(ctx context.Context, cmd DeleteEventCommand)
 			IdempotentKey: uuid.New(),
 			Body:          eventWithLocationQuery,
 			Method:        "DeleteEventWithLocation",
-			CreatedAt:     time.Now(),
+			TimeStamp:     time.Now(),
 			Retries:       0,
 		}
 

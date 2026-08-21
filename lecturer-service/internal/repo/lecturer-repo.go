@@ -20,13 +20,14 @@ type LecturerRepo struct {
 	db *gorm.DB
 }
 
-type ILecturerWriteRepo interface {
+type ILecturerCommandRepo interface {
 	CreateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	UpdateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	DeleteLecturer(ctx context.Context, id int64) error
+	WithTx(db *gorm.DB) LecturerRepo
 }
 
-type ILecturerReadRepo interface {
+type ILecturerQueryRepo interface {
 	GetLecturerByID(ctx context.Context, id int64) (*model.Lecturer, error)
 	GetLecturerByName(ctx context.Context, fullName string) (*model.Lecturer, error)
 	ListLecturers(ctx context.Context, filter ListLecturersFilter) ([]model.Lecturer, int64, error)

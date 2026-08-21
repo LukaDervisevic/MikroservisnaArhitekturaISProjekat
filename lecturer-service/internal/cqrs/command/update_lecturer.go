@@ -2,10 +2,20 @@ package command
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"time"
 
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 )
 
 type UpdateLecturerCommand struct {
@@ -32,11 +42,33 @@ func (c UpdateLecturerCommand) Validate() error {
 }
 
 type UpdateLecturerHandler struct {
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo  *repo.LecturerRepo
+	db            *gorm.DB
+	publisherConn *rabbitmq.PublisherConn
+	consumerConn  *rabbitmq.ConsumerConn
+	sagaSendChan  map[int64]chan error
+	sagaReplies   *saga.SagaReplyRegistry
 }
 
-func NewUpdateLecturerHandler(lecturerRepo *repo.LecturerRepo) *UpdateLecturerHandler {
-	return &UpdateLecturerHandler{lecturerRepo: lecturerRepo}
+func NewUpdateLecturerHandler(lecturerRepo *repo.LecturerRepo,
+	db *gorm.DB,
+	publisherConn *rabbitmq.PublisherConn,
+	consumerConn *rabbitmq.ConsumerConn) *UpdateLecturerHandler {
+
+	var err error
+	err = publisherConn.NewQueueRequester(context.Background(), publisherConn.Connection, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"))
+	err = consumerConn.NewQueueResponder(context.Background(), os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"))
+	if err != nil {
+		return nil
+	}
+
+	return &UpdateLecturerHandler{
+		lecturerRepo:  lecturerRepo,
+		db:            db,
+		publisherConn: publisherConn,
+		sagaSendChan:  make(map[int64]chan error),
+		sagaReplies:   saga.NewSagaReplyRegistry(),
+	}
 }
 
 func (h *UpdateLecturerHandler) Handle(ctx context.Context, cmd UpdateLecturerCommand) error {
@@ -56,8 +88,65 @@ func (h *UpdateLecturerHandler) Handle(ctx context.Context, cmd UpdateLecturerCo
 	lecturer.Title = cmd.Title
 	lecturer.FieldOfExpertise = cmd.FieldOfExpertise
 
-	if err := h.lecturerRepo.UpdateLecturer(ctx, lecturer); err != nil {
-		return status.Error(codes.Internal, "failed to update lecturer")
+	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		ch := h.sagaReplies.Register(lecturer.Id)
+
+		go func() {
+			if err := h.sendUpdateEvent(ctx, lecturer); err != nil {
+				h.sagaReplies.Resolve(lecturer.Id, err)
+			}
+		}()
+
+		var sagaErr error
+		select {
+		case sagaErr = <-ch:
+		case <-time.After(10 * time.Second):
+			sagaErr = errors.New("saga reply timeout")
+		}
+		if sagaErr != nil {
+			return status.Error(codes.Internal, "saga failed: "+sagaErr.Error())
+		}
+
+		if errTran := h.lecturerRepo.UpdateLecturer(ctx, lecturer); errTran != nil {
+			return status.Error(codes.Internal, "failed to update lecturer")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+
+	return nil
+}
+
+func (h *UpdateLecturerHandler) sendUpdateEvent(ctx context.Context, lecturer *model.Lecturer) error {
+
+	lecturerBytes, err := json.Marshal(lecturer)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal lecturer with id %d", lecturer.Id)
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
+	msg := rabbitmq.Message{
+		IdempotentKey: uuid.New(),
+		Body:          lecturerBytes,
+		Method:        "UpdateLecturerSAGA",
+		TimeStamp:     time.Now(),
+		Retries:       0,
+	}
+
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
+	err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), true)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
+		return status.Error(codes.Internal, "failed to marshal lecture")
+	}
+
 	return nil
 }

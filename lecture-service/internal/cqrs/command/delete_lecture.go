@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
@@ -31,11 +32,21 @@ type DeleteLectureHandler struct {
 	db               *gorm.DB
 	lectureReadRepo  repo.ILectureReadRepo
 	lectureWriteRepo repo.ILectureWriteRepo
-	brokerConn       *rabbitmq.BrokerClientConn
+	brokerConn       *rabbitmq.PublisherConn
 }
 
-func NewDeleteLectureHandler(lectureReadRepo repo.ILectureReadRepo, lectureWriteRepo repo.ILectureWriteRepo) *DeleteLectureHandler {
-	return &DeleteLectureHandler{lectureReadRepo: lectureReadRepo, lectureWriteRepo: lectureWriteRepo}
+func NewDeleteLectureHandler(
+	db *gorm.DB,
+	lectureReadRepo repo.ILectureReadRepo,
+	lectureWriteRepo repo.ILectureWriteRepo,
+	brokerConn *rabbitmq.PublisherConn,
+) *DeleteLectureHandler {
+	return &DeleteLectureHandler{
+		db:               db,
+		lectureReadRepo:  lectureReadRepo,
+		lectureWriteRepo: lectureWriteRepo,
+		brokerConn:       brokerConn,
+	}
 }
 
 func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureCommand) (*model.Lecture, error) {
@@ -74,7 +85,7 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 			return status.Error(codes.Internal, "failed to marshal lecture")
 		}
 
-		err = h.brokerConn.Publish(ctx, payload, true)
+		err = h.brokerConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to marshal lecture")

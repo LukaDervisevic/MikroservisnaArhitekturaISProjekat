@@ -40,10 +40,10 @@ type CreateEventHandler struct {
 	db               *gorm.DB
 	eventWriteRepo   repo.IEventCommandRepo
 	locationReadRepo repo.ILocationReadRepo
-	broker           *rabbitmq.BrokerClientConn
+	broker           *rabbitmq.PublisherConn
 }
 
-func NewCreateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.BrokerClientConn) *CreateEventHandler {
+func NewCreateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.PublisherConn) *CreateEventHandler {
 	return &CreateEventHandler{db: db, eventWriteRepo: eventWriteRepo, locationReadRepo: locationReadRepo, broker: broker}
 }
 
@@ -80,7 +80,7 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 			IdempotentKey: uuid.New(),
 			Body:          eventWithLocationQuery,
 			Method:        "CreateEventWithLocation",
-			CreatedAt:     time.Now(),
+			TimeStamp:     time.Now(),
 			Retries:       0,
 		}
 

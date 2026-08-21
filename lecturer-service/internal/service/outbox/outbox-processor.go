@@ -1,27 +1,28 @@
-package service
+package outbox
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
 type OutboxProcessor struct {
-	db         *gorm.DB
-	outboxRepo *repo.OutboxRepo
-	brokerConn *rabbitmq.BrokerPublisherConn
+	db            *gorm.DB
+	outboxRepo    *outbox.OutboxRepo
+	publisherConn *rabbitmq.PublisherConn
 }
 
-func NewOutboxProcessor(db *gorm.DB, outboxRepo *repo.OutboxRepo, brokerConn *rabbitmq.BrokerPublisherConn) *OutboxProcessor {
+func NewOutboxProcessor(db *gorm.DB, outboxRepo *outbox.OutboxRepo, brokerConn *rabbitmq.PublisherConn) *OutboxProcessor {
 	return &OutboxProcessor{
-		db:         db,
-		outboxRepo: outboxRepo,
-		brokerConn: brokerConn,
+		db:            db,
+		outboxRepo:    outboxRepo,
+		publisherConn: brokerConn,
 	}
 }
 
@@ -48,7 +49,7 @@ func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 	var stashed []model.Outbox
 
 	err := p.db.WithContext(ctx).
-		Where("status = ?", repo.StatusStashed).
+		Where("status = ?", outbox.StatusStashed).
 		Order("timestamp ASC").
 		Limit(10).
 		Find(&stashed).Error
@@ -59,7 +60,7 @@ func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 
 	for _, record := range stashed {
 		pubCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := p.brokerConn.Publish(pubCtx, record.Payload, true)
+		err := p.publisherConn.Publish(pubCtx, record.Payload, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), true)
 		cancel()
 
 		if err != nil {
@@ -70,7 +71,7 @@ func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 		err = p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			return tx.Model(&model.Outbox{}).
 				Where("id = ?", record.ID).
-				Update("status", repo.StatusSent).Error
+				Update("status", outbox.StatusSent).Error
 		})
 
 		if err != nil {
