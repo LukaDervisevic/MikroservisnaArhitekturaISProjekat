@@ -33,8 +33,6 @@ type ILecturerQueryRepo interface {
 	ListLecturers(ctx context.Context, filter ListLecturersFilter) ([]model.Lecturer, int64, error)
 }
 
-// ILecturerRepo is the read+write surface for handlers that both look a lecturer
-// up and modify it, so they take one dependency instead of two.
 type ILecturerRepo interface {
 	ILecturerQueryRepo
 	ILecturerCommandRepo

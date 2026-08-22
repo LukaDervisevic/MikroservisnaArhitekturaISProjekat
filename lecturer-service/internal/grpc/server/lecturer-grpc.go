@@ -46,8 +46,6 @@ func isRetriable(grpcCode codes.Code) bool {
 		grpcCode != codes.PermissionDenied
 }
 
-// NewGrpcServer only assembles request handlers. Broker connections, repositories
-// and background workers are owned by main, which is the composition root.
 func NewGrpcServer(
 	db *gorm.DB,
 	lecturerRepo *repo.LecturerRepo,
@@ -77,7 +75,7 @@ func NewGrpcServer(
 	//	ailPublisher, err = rabbitmq.NewMailPublisher(ctx, lecturerBrokerConn.Connection, os.Getenv("RABBITMQ_LECTURE_MAIL_QUEUE"))
 	//	if err != nil || mailPublisher == nil {
 	//		return nil
-	//	}m
+	//	}
 	//}
 
 	env := os.Getenv("ENVIRONMENT")

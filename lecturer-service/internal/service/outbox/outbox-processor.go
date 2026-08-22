@@ -42,7 +42,6 @@ func (p *OutboxProcessor) StartPoller(ctx context.Context, interval time.Duratio
 
 const outboxBatchSize = 10
 
-// TODO: Add offset when i enable data streaming
 func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 	stashed, err := p.outboxRepo.GetStashedMessages(ctx, outboxBatchSize)
 	if err != nil || len(stashed) == 0 {
