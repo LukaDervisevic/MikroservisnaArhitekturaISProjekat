@@ -15,7 +15,6 @@ WORKDIR /event-query-docker
 
 COPY --from=builder /event-query-docker/main .
 COPY --from=builder /event-query-docker/event-query-service/internal/migrations /event-query-docker/internal/migrations
-COPY --from=builder /event-query-docker/event-query-service/.env.docker /event-query-docker/event-query-service/.env.docker
 
 EXPOSE 50055
 

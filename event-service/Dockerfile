@@ -16,7 +16,6 @@ WORKDIR /event-docker
 
 COPY --from=builder /event-docker/main .
 COPY --from=builder /event-docker/event-service/internal/migrations /event-docker/internal/migrations
-COPY --from=builder /event-docker/event-service/.env.docker /event-docker/event-service/.env.docker
 
 EXPOSE 50055
 
