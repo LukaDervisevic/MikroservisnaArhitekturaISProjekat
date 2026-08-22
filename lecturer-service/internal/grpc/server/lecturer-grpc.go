@@ -12,7 +12,6 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/query"
 	outbox2 "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/outbox"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -27,8 +26,6 @@ import (
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	createLecturerHandler    *command.CreateLecturerHandler
 	updateLecturerHandler    *command.UpdateLecturerHandler
 	deleteLecturerHandler    *command.DeleteLecturerHandler
@@ -37,9 +34,6 @@ type GrpcServer struct {
 	listLecturersHandler     *query.ListLecturersHandler
 
 	lecturerpb.UnimplementedLecturerServiceServer
-	PublisherConn   *rabbitmq.PublisherConn
-	ConsumerConn    *rabbitmq.ConsumerConn
-	outboxProcessor *outbox.OutboxProcessor
 }
 
 var maxTries = 5
@@ -52,38 +46,15 @@ func isRetriable(grpcCode codes.Code) bool {
 		grpcCode != codes.PermissionDenied
 }
 
-func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
-	lecturerRepo := repo.NewLecturerRepo(db)
-	outboxRepo := outbox2.NewOutboxRepo(db)
-
-	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
-	toLectureQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
-	replyQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
-
-	// One registry shared by the consumer that receives saga replies and the
-	// command handler that waits on them.
-	sagaReplies := saga.NewSagaReplyRegistry()
-
-	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
-	if err != nil {
-		log.Err(err).Msg("unable to create publisher connection")
-		return nil
-	}
-	if err := publisherConn.NewQueueRequester(ctx, publisherConn.Connection, toLectureQueue); err != nil {
-		log.Err(err).Msgf("unable to create requester for queue %s", toLectureQueue)
-		return nil
-	}
-
-	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, db, *lecturerRepo, sagaReplies)
-	if err != nil {
-		log.Err(err).Msg("unable to create consumer connection")
-		return nil
-	}
-	if err := consumerConn.NewQueueResponder(ctx, replyQueue); err != nil {
-		log.Err(err).Msgf("unable to create responder for queue %s", replyQueue)
-		return nil
-	}
-
+// NewGrpcServer only assembles request handlers. Broker connections, repositories
+// and background workers are owned by main, which is the composition root.
+func NewGrpcServer(
+	db *gorm.DB,
+	lecturerRepo *repo.LecturerRepo,
+	outboxRepo *outbox2.OutboxRepo,
+	publisherConn *rabbitmq.PublisherConn,
+	sagaReplies *saga.SagaReplyRegistry,
+) *GrpcServer {
 	createHandler := command.NewCreateLecturerHandler(db, lecturerRepo, outboxRepo)
 	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, sagaReplies)
 	deleteHandler := command.NewDeleteLecturerHandler(lecturerRepo)
@@ -108,9 +79,6 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	//		return nil
 	//	}m
 	//}
-
-	outboxProcessor := outbox.NewOutboxProcessor(db, outboxRepo, publisherConn)
-	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
 	env := os.Getenv("ENVIRONMENT")
 	var lecturerUrl string
@@ -171,23 +139,14 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	grpc.WithChainUnaryInterceptor(retryInterceptor)
 	grpc.WithChainUnaryInterceptor(timeoutInterceptor)
 
-	grpcServer := &GrpcServer{
-		db: db,
-
+	return &GrpcServer{
 		createLecturerHandler:    createHandler,
 		updateLecturerHandler:    updateHandler,
 		deleteLecturerHandler:    deleteHandler,
 		getLecturerByIDHandler:   getByIDHandler,
 		getLecturerByNameHandler: getByNameHandler,
 		listLecturersHandler:     listHandler,
-
-		outboxProcessor: outboxProcessor,
-
-		PublisherConn: publisherConn,
-		ConsumerConn:  consumerConn,
 	}
-
-	return grpcServer
 }
 
 func (g *GrpcServer) CreateLecturer(ctx context.Context, req *lecturerpb.CreateLecturerRequest) (*lecturerpb.CreateLecturerResponse, error) {

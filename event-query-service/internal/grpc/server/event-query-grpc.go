@@ -11,12 +11,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	getEventByIDHandler   *query.GetEventByIDHandler
 	getEventByNameHandler *query.GetEventByNameHandler
 	listEventsHandler     *query.ListEventsHandler
@@ -24,12 +21,8 @@ type GrpcServer struct {
 	eventpb.UnimplementedEventServiceServer
 }
 
-func NewGrpcServer(db *gorm.DB) *GrpcServer {
-	eventRepo := repo.NewEventRepo(db)
-
+func NewGrpcServer(eventRepo repo.IEventQueryRepo) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
 		getEventByIDHandler:   query.NewGetEventByIDHandler(eventRepo),
 		getEventByNameHandler: query.NewGetEventByNameHandler(eventRepo),
 		listEventsHandler:     query.NewListEventsHandler(eventRepo),

@@ -22,6 +22,11 @@ type ILectureReadRepo interface {
 	ListLecturesByLecturerID(ctx context.Context, filter ListLecturesByLecturerIDFilter) ([]model.Lecture, int64, error)
 }
 
+type ILectureRepo interface {
+	ILectureReadRepo
+	ILectureWriteRepo
+}
+
 type ListLecturesByEventIDFilter struct {
 	EventID  int64
 	Page     int
@@ -49,9 +54,6 @@ func (r *LectureRepo) WithTx(tx *gorm.DB) *LectureRepo {
 	return &LectureRepo{db: tx}
 }
 
-// ListAllLecturesByLecturerID returns every lecture a lecturer gives, unpaged.
-// Used to rebuild read-model projections, where a partial page would silently
-// leave stale rows behind.
 func (r *LectureRepo) ListAllLecturesByLecturerID(ctx context.Context, lecturerID int64) ([]model.Lecture, error) {
 	var lectures []model.Lecture
 	err := r.db.WithContext(ctx).

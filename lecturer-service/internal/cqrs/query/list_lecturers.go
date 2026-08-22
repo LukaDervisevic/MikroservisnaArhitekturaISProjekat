@@ -27,10 +27,10 @@ func (q ListLecturersQuery) Validate() error {
 }
 
 type ListLecturersHandler struct {
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo repo.ILecturerQueryRepo
 }
 
-func NewListLecturersHandler(lecturerRepo *repo.LecturerRepo) *ListLecturersHandler {
+func NewListLecturersHandler(lecturerRepo repo.ILecturerQueryRepo) *ListLecturersHandler {
 	return &ListLecturersHandler{lecturerRepo: lecturerRepo}
 }
 

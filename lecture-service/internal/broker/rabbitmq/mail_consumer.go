@@ -17,14 +17,10 @@ const (
 )
 
 type MailConsumer struct {
-	conn      *rmq.AmqpConnection
 	consumer  *rmq.Consumer
 	publisher *rmq.Publisher
 	dlq       *rmq.Publisher
 	outbox    *repo.OutboxRepo
-
-	sendQueue string
-	dlqQueue  string
 }
 
 func NewMailConsumer(
@@ -56,13 +52,10 @@ func NewMailConsumer(
 	}
 
 	return &MailConsumer{
-		conn:      conn,
 		consumer:  consumer,
 		publisher: publisher,
 		dlq:       dlq,
 		outbox:    outbox,
-		sendQueue: sendQueue,
-		dlqQueue:  dlqQueue,
 	}, nil
 }
 

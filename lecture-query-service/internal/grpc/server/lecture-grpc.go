@@ -11,12 +11,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	getLectureByIDHandler           *query.GetLectureByIDHandler
 	getLectureByNameHandler         *query.GetLectureByNameHandler
 	listLecturesByEventIDHandler    *query.ListLecturesByEventIDHandler
@@ -25,12 +22,8 @@ type GrpcServer struct {
 	lecturepb.UnimplementedLectureServiceServer
 }
 
-func NewGrpcServer(db *gorm.DB) *GrpcServer {
-	lectureRepo := repo.NewLectureQueryRepo(db)
-
+func NewGrpcServer(lectureRepo repo.ILectureQueryRepo) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
 		getLectureByIDHandler:           query.NewGetLectureByIDHandler(lectureRepo),
 		getLectureByNameHandler:         query.NewGetLectureByNameHandler(lectureRepo),
 		listLecturesByEventIDHandler:    query.NewListLecturesByEventIDHandler(lectureRepo),

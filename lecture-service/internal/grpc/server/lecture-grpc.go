@@ -40,8 +40,8 @@ func NewGrpcServer(
 ) *GrpcServer {
 	return &GrpcServer{
 		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn),
-		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, lectureRepo, publisherConn, sagaReplies),
-		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, lectureRepo, publisherConn),
+		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, publisherConn, sagaReplies),
+		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, publisherConn),
 	}
 }
 

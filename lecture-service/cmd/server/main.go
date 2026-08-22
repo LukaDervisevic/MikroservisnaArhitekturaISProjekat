@@ -34,12 +34,14 @@ func main() {
 
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 
-	// Inbound: sagas from lecturer-service, plus replies from lecture-query-service.
-	// Outbound: sagas to lecture-query-service, plus replies to lecturer-service.
 	fromLecturerQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
 	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
 	toLectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
 	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
+
+	mailQueue := os.Getenv("RABBITMQ_MAIL_QUEUE")
+	mailDLQQueue := os.Getenv("RABBITMQ_MAIL_DLQ_QUEUE")
+	outboxDir := os.Getenv("MAIL_OUTBOX_DIR")
 
 	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
@@ -61,8 +63,6 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
 
-	// Separate responders: the saga responder blocks while awaiting a downstream
-	// reply, so the reply must arrive on its own responder goroutine.
 	for _, queue := range []string{fromLecturerQueue, replyToLectureQueue} {
 		if err := consumerConn.NewQueueResponder(ctx, queue); err != nil {
 			log.Fatal().Err(err).Msgf("failed to start responder for queue %s", queue)
@@ -94,13 +94,13 @@ func main() {
 			return
 		}
 
-		outbox, err := repo.NewOutboxRepo("outbox")
+		outbox, err := repo.NewOutboxRepo(outboxDir)
 		if err != nil {
 			log.Error().Err(err).Msg("mail worker: failed to init outbox")
 			return
 		}
 
-		consumer, err := rabbitmq.NewMailConsumer(ctx, mailConn, outbox, "mail.send", "mail.dlq")
+		consumer, err := rabbitmq.NewMailConsumer(ctx, mailConn, outbox, mailQueue, mailDLQQueue)
 		if err != nil {
 			log.Error().Err(err).Msg("mail worker: failed to create consumer")
 			return

@@ -25,11 +25,11 @@ type CreateLecturerCommand struct {
 
 type CreateLecturerHandler struct {
 	db           *gorm.DB
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo repo.ILecturerCommandRepo
 	outboxRepo   *outbox.OutboxRepo
 }
 
-func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo *repo.LecturerRepo, outboxRepo *outbox.OutboxRepo) *CreateLecturerHandler {
+func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo repo.ILecturerCommandRepo, outboxRepo *outbox.OutboxRepo) *CreateLecturerHandler {
 	return &CreateLecturerHandler{db: db, lecturerRepo: lecturerRepo, outboxRepo: outboxRepo}
 }
 

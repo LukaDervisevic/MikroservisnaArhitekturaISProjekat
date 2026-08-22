@@ -38,8 +38,10 @@ func main() {
 		return
 	}
 
+	lectureQueryRepo := repo.NewLectureQueryRepo(conn)
+
 	grpcServer := grpc.NewServer()
-	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(conn))
+	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(lectureQueryRepo))
 
 	go func() {
 		log.Printf("starting lecturer query service grpc server on port %v...", port)
@@ -61,7 +63,6 @@ func main() {
 		log.Fatal().Err(err).Msgf("failed to create requester for queue %s", replyToLectureQueue)
 	}
 
-	lectureQueryRepo := repo.NewLectureQueryRepo(conn)
 	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")

@@ -21,10 +21,10 @@ func (c DeleteLecturerCommand) Validate() error {
 }
 
 type DeleteLecturerHandler struct {
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo repo.ILecturerRepo
 }
 
-func NewDeleteLecturerHandler(lecturerRepo *repo.LecturerRepo) *DeleteLecturerHandler {
+func NewDeleteLecturerHandler(lecturerRepo repo.ILecturerRepo) *DeleteLecturerHandler {
 	return &DeleteLecturerHandler{lecturerRepo: lecturerRepo}
 }
 

@@ -63,6 +63,13 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 	}
 
 	location, err := h.locationReadRepo.GetLocationByID(ctx, cmd.LocationID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to verify location")
+	}
+	if location == nil {
+		return nil, status.Error(codes.NotFound, "location not found")
+	}
+
 	event := &model.Event{
 		Id:              cmd.Id,
 		Name:            cmd.Name,
@@ -98,7 +105,7 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
-		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_TO_EVENT_QUERY_QUEUE"), true)
+		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event to query service")

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
@@ -22,9 +21,6 @@ import (
 )
 
 type GrpcServer struct {
-	db  *gorm.DB
-	ctx context.Context
-
 	createLocationHandler    *command.CreateLocationHandler
 	updateLocationHandler    *command.UpdateLocationHandler
 	deleteLocationHandler    *command.DeleteLocationHandler
@@ -40,18 +36,13 @@ type GrpcServer struct {
 	locationpb.UnimplementedLocationServiceServer
 }
 
-func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
-	eventRepo := repo.NewEventRepo(db)
-	locationRepo := repo.NewLocationRepo(db)
-	// TODO: fix
-	queryBroker := rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-	if queryBroker != nil {
-		queryBroker.NewQueueRequester(ctx, queryBroker.Connection, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"))
-	}
-
+func NewGrpcServer(
+	db *gorm.DB,
+	eventRepo *repo.EventRepo,
+	locationRepo *repo.LocationRepo,
+	queryBroker *rabbitmq.PublisherConn,
+) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
 		createLocationHandler:    command.NewCreateLocationHandler(locationRepo),
 		updateLocationHandler:    command.NewUpdateLocationHandler(locationRepo, locationRepo),
 		deleteLocationHandler:    command.NewDeleteLocationHandler(locationRepo, locationRepo),

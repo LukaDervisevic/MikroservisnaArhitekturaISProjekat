@@ -21,10 +21,10 @@ func (q GetLecturerByIDQuery) Validate() error {
 }
 
 type GetLecturerByIDHandler struct {
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo repo.ILecturerQueryRepo
 }
 
-func NewGetLecturerByIDHandler(lecturerRepo *repo.LecturerRepo) *GetLecturerByIDHandler {
+func NewGetLecturerByIDHandler(lecturerRepo repo.ILecturerQueryRepo) *GetLecturerByIDHandler {
 	return &GetLecturerByIDHandler{lecturerRepo: lecturerRepo}
 }
 

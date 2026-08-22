@@ -11,22 +11,20 @@ import (
 )
 
 type MailPublisher struct {
-	conn      *rmq.AmqpConnection
 	publisher *rmq.Publisher
-	queueName string
 }
 
 func NewMailPublisher(ctx context.Context, conn *rmq.AmqpConnection, queueName string) (*MailPublisher, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("nil rabbitmq connection")
 	}
-	
+
 	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: queueName}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create publisher for %s: %w", queueName, err)
 	}
 
-	return &MailPublisher{conn: conn, publisher: publisher, queueName: queueName}, nil
+	return &MailPublisher{publisher: publisher}, nil
 }
 
 func (p *MailPublisher) PublishEmail(ctx context.Context, email model.EmailMessage) error {

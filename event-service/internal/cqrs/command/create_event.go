@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
@@ -91,7 +92,7 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
-		err = h.broker.Publish(ctx, msgByte, true)
+		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event")

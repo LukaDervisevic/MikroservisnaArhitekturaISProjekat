@@ -10,7 +10,6 @@ import (
 
 	"github.com/Azure/go-amqp"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -40,15 +39,16 @@ type DeadLetter struct {
 	CreatedAt time.Time
 }
 
+// ConsumerConn only receives saga replies here, so it needs the db (to claim
+// idempotency keys) and the reply registry — no lecturer repository.
 type ConsumerConn struct {
-	seen         map[uuid.UUID]struct{}
-	mutex        sync.RWMutex
-	Environment  *rmq.Environment
-	Connection   *rmq.AmqpConnection
-	responders   map[string]rmq.Responder
-	db           *gorm.DB
-	lecturerRepo repo.LecturerRepo
-	sagaReplies  *saga.SagaReplyRegistry
+	seen        map[uuid.UUID]struct{}
+	mutex       sync.RWMutex
+	Environment *rmq.Environment
+	Connection  *rmq.AmqpConnection
+	responders  map[string]rmq.Responder
+	db          *gorm.DB
+	sagaReplies *saga.SagaReplyRegistry
 }
 
 func NewConsumerConn(
@@ -56,7 +56,6 @@ func NewConsumerConn(
 	brokerURI string,
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
-	lecturerRepo repo.LecturerRepo,
 	sagaReplies *saga.SagaReplyRegistry,
 ) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
@@ -66,13 +65,12 @@ func NewConsumerConn(
 	}
 
 	return &ConsumerConn{
-		seen:         make(map[uuid.UUID]struct{}),
-		Environment:  env,
-		Connection:   conn,
-		responders:   make(map[string]rmq.Responder),
-		db:           db,
-		lecturerRepo: lecturerRepo,
-		sagaReplies:  sagaReplies,
+		seen:        make(map[uuid.UUID]struct{}),
+		Environment: env,
+		Connection:  conn,
+		responders:  make(map[string]rmq.Responder),
+		db:          db,
+		sagaReplies: sagaReplies,
 	}, nil
 }
 

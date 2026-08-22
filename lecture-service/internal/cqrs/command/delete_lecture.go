@@ -29,23 +29,20 @@ func (c DeleteLectureCommand) Validate() error {
 }
 
 type DeleteLectureHandler struct {
-	db               *gorm.DB
-	lectureReadRepo  repo.ILectureReadRepo
-	lectureWriteRepo repo.ILectureWriteRepo
-	brokerConn       *rabbitmq.PublisherConn
+	db          *gorm.DB
+	lectureRepo repo.ILectureRepo
+	brokerConn  *rabbitmq.PublisherConn
 }
 
 func NewDeleteLectureHandler(
 	db *gorm.DB,
-	lectureReadRepo repo.ILectureReadRepo,
-	lectureWriteRepo repo.ILectureWriteRepo,
+	lectureRepo repo.ILectureRepo,
 	brokerConn *rabbitmq.PublisherConn,
 ) *DeleteLectureHandler {
 	return &DeleteLectureHandler{
-		db:               db,
-		lectureReadRepo:  lectureReadRepo,
-		lectureWriteRepo: lectureWriteRepo,
-		brokerConn:       brokerConn,
+		db:          db,
+		lectureRepo: lectureRepo,
+		brokerConn:  brokerConn,
 	}
 }
 
@@ -53,7 +50,7 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
-	lecture, err := h.lectureReadRepo.GetLectureByID(ctx, cmd.LectureID)
+	lecture, err := h.lectureRepo.GetLectureByID(ctx, cmd.LectureID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to retrieve lecture")
 	}
@@ -62,7 +59,7 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 	}
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.lectureWriteRepo.DeleteLecture(ctx, cmd.LectureID); err != nil {
+		if err := h.lectureRepo.DeleteLecture(ctx, cmd.LectureID); err != nil {
 			return status.Error(codes.Internal, "failed to delete lecture")
 		}
 

@@ -27,11 +27,11 @@ type PublisherConn struct {
 	Requesters  map[string]rmq.Requester
 }
 
-func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) *PublisherConn {
+func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) (*PublisherConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	log.Info().Msgf("RabbitMQ client connection %s started at %s", conn.Id(), brokerURI)
 	return &PublisherConn{
@@ -39,18 +39,19 @@ func NewRabbitMQClientConn(ctx context.Context, brokerURI string, connOptions *r
 		Environment: env,
 		Connection:  conn,
 		Requesters:  make(map[string]rmq.Requester),
-	}
+	}, nil
 }
 
-func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
+func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
 	if conn == nil {
-		return
+		return fmt.Errorf("publisher connection is nil to queue %s", queueName)
 	}
 	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
 	if err != nil {
-		return
+		return fmt.Errorf("create requester for queue %s: %w", queueName, err)
 	}
 	b.Requesters[queueName] = requester
+	return nil
 }
 
 func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {

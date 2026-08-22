@@ -13,8 +13,8 @@ services:
       - mais-backend
     healthcheck:
       test: [ "CMD-SHELL","pg_isready -U $$POSTGRES_USER -d event_service_db && pg_isready -U $$POSTGRES_USER -d lecturer_service_db
-      && pg_isready -U $POSTGRES_USER -d lecture_service_db && pg_isready -U $POSTGRES_USER -d event_query_service_db 
-      && pg_isready -U $POSTGRES_USER -d lecture_query_service_db" ]
+      && pg_isready -U $$POSTGRES_USER -d lecture_service_db && pg_isready -U $$POSTGRES_USER -d event_query_service_db 
+      && pg_isready -U $$POSTGRES_USER -d lecture_query_service_db" ]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -41,7 +41,9 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: pass1234
-      RABBITMQ_LOAD_DEFINITIONS: "/etc/rabbitmq/definitions_test.json"
+      RABBITMQ_LOAD_DEFINITIONS: "/etc/rabbitmq/definitions.json"
+    networks:
+      - mais-backend
 
 
   apisix:

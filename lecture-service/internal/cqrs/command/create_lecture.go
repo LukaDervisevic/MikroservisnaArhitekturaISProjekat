@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
@@ -110,7 +111,7 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			return status.Error(codes.Internal, "failed to marshal payload")
 		}
 
-		err = h.publisherConn.Publish(ctx, payload, "RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE", true)
+		err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to publish message with id %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish message")

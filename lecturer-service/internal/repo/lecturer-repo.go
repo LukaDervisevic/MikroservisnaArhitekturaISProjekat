@@ -24,7 +24,7 @@ type ILecturerCommandRepo interface {
 	CreateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	UpdateLecturer(ctx context.Context, lecturer *model.Lecturer) error
 	DeleteLecturer(ctx context.Context, id int64) error
-	WithTx(db *gorm.DB) LecturerRepo
+	WithTx(tx *gorm.DB) *LecturerRepo
 }
 
 type ILecturerQueryRepo interface {
@@ -32,6 +32,19 @@ type ILecturerQueryRepo interface {
 	GetLecturerByName(ctx context.Context, fullName string) (*model.Lecturer, error)
 	ListLecturers(ctx context.Context, filter ListLecturersFilter) ([]model.Lecturer, int64, error)
 }
+
+// ILecturerRepo is the read+write surface for handlers that both look a lecturer
+// up and modify it, so they take one dependency instead of two.
+type ILecturerRepo interface {
+	ILecturerQueryRepo
+	ILecturerCommandRepo
+}
+
+var (
+	_ ILecturerRepo        = (*LecturerRepo)(nil)
+	_ ILecturerCommandRepo = (*LecturerRepo)(nil)
+	_ ILecturerQueryRepo   = (*LecturerRepo)(nil)
+)
 
 func NewLecturerRepo(db *gorm.DB) *LecturerRepo {
 	return &LecturerRepo{db: db}

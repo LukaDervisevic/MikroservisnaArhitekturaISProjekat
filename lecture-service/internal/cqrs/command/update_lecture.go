@@ -40,29 +40,26 @@ func (c UpdateLectureCommand) Validate() error {
 }
 
 type UpdateLectureHandler struct {
-	db               *gorm.DB
-	lectureWriteRepo repo.ILectureWriteRepo
-	lectureReadRepo  repo.ILectureReadRepo
-	eventRepo        repo.IEventReadRepo
-	publisherConn    *rabbitmq.PublisherConn
-	sagaReplies      *saga.SagaReplyRegistry
+	db            *gorm.DB
+	lectureRepo   repo.ILectureRepo
+	eventRepo     repo.IEventReadRepo
+	publisherConn *rabbitmq.PublisherConn
+	sagaReplies   *saga.SagaReplyRegistry
 }
 
 func NewUpdateLectureHandler(
 	db *gorm.DB,
-	lectureWriteRepo repo.ILectureWriteRepo,
+	lectureRepo repo.ILectureRepo,
 	eventRepo repo.IEventReadRepo,
-	lectureReadRepo repo.ILectureReadRepo,
 	brokerConn *rabbitmq.PublisherConn,
 	sagaReplies *saga.SagaReplyRegistry,
 ) *UpdateLectureHandler {
 	return &UpdateLectureHandler{
-		db:               db,
-		lectureWriteRepo: lectureWriteRepo,
-		eventRepo:        eventRepo,
-		lectureReadRepo:  lectureReadRepo,
-		publisherConn:    brokerConn,
-		sagaReplies:      sagaReplies,
+		db:            db,
+		lectureRepo:   lectureRepo,
+		eventRepo:     eventRepo,
+		publisherConn: brokerConn,
+		sagaReplies:   sagaReplies,
 	}
 }
 
@@ -72,7 +69,7 @@ func (h *UpdateLectureHandler) Handle(
 	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
-	lecture, err := h.lectureReadRepo.GetLectureByID(ctx, cmd.LectureID)
+	lecture, err := h.lectureRepo.GetLectureByID(ctx, cmd.LectureID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to retrieve lecture")
 	}
@@ -127,7 +124,7 @@ func (h *UpdateLectureHandler) Handle(
 			return status.Error(codes.DeadlineExceeded, "saga reply timeout")
 		}
 
-		if err := h.lectureWriteRepo.UpdateLecture(ctx, lecture); err != nil {
+		if err := h.lectureRepo.UpdateLecture(ctx, lecture); err != nil {
 			return status.Error(codes.Internal, "failed to update lecture")
 		}
 

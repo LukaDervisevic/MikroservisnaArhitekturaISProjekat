@@ -44,13 +44,13 @@ func (c UpdateLecturerCommand) Validate() error {
 const sagaTimeout = 20 * time.Second
 
 type UpdateLecturerHandler struct {
-	lecturerRepo  *repo.LecturerRepo
+	lecturerRepo  repo.ILecturerRepo
 	db            *gorm.DB
 	publisherConn *rabbitmq.PublisherConn
 	sagaReplies   *saga.SagaReplyRegistry
 }
 
-func NewUpdateLecturerHandler(lecturerRepo *repo.LecturerRepo,
+func NewUpdateLecturerHandler(lecturerRepo repo.ILecturerRepo,
 	db *gorm.DB,
 	publisherConn *rabbitmq.PublisherConn,
 	sagaReplies *saga.SagaReplyRegistry) *UpdateLecturerHandler {
