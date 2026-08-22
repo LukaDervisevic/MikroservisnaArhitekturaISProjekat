@@ -35,6 +35,7 @@ func main() {
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 
 	fromLecturerQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
+	fromEventQueue := os.Getenv("RABBITMQ_EVENT_TO_LECTURE_QUEUE")
 	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
 	toLectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
 	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
@@ -63,7 +64,7 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
 
-	for _, queue := range []string{fromLecturerQueue, replyToLectureQueue} {
+	for _, queue := range []string{fromLecturerQueue, fromEventQueue, replyToLectureQueue} {
 		if err := consumerConn.NewQueueResponder(ctx, queue); err != nil {
 			log.Fatal().Err(err).Msgf("failed to start responder for queue %s", queue)
 		}

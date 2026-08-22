@@ -11,6 +11,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -42,10 +43,11 @@ type CreateEventHandler struct {
 	eventWriteRepo   repo.IEventCommandRepo
 	locationReadRepo repo.ILocationReadRepo
 	broker           *rabbitmq.PublisherConn
+	outboxRepo       *outboxrepo.OutboxRepo
 }
 
-func NewCreateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.PublisherConn) *CreateEventHandler {
-	return &CreateEventHandler{db: db, eventWriteRepo: eventWriteRepo, locationReadRepo: locationReadRepo, broker: broker}
+func NewCreateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.PublisherConn, outboxRepo *outboxrepo.OutboxRepo) *CreateEventHandler {
+	return &CreateEventHandler{db: db, eventWriteRepo: eventWriteRepo, locationReadRepo: locationReadRepo, broker: broker, outboxRepo: outboxRepo}
 }
 
 func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand) (*model.Event, error) {
@@ -68,7 +70,7 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 		LocationID:      cmd.LocationID,
 	}
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.eventWriteRepo.CreateEvent(ctx, event); err != nil {
+		if err := h.eventWriteRepo.WithTx(tx).CreateEvent(ctx, event); err != nil {
 			return status.Error(codes.Internal, "failed to create event")
 		}
 
@@ -77,7 +79,7 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 			return fmt.Errorf("unable to marshal event with location query")
 		}
 
-		msg := rabbitmq.Message{
+		queryMsg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
 			Body:          eventWithLocationQuery,
 			Method:        "CreateEventWithLocation",
@@ -86,16 +88,32 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 		}
 
 		var msgByte []byte
-		msgByte, err = json.Marshal(msg)
+		msgByte, err = json.Marshal(queryMsg)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to encode a message with key %s", msg.IdempotentKey.String())
+			log.Error().Err(err).Msgf("unable to encode a message with key %s", queryMsg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
 		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"), true)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
+			log.Error().Err(err).Msgf("unable to publish a message with key %s", queryMsg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event")
+		}
+
+		eventBytes, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("unable to marshal event for outbox")
+		}
+
+		outboxMsg := rabbitmq.Message{
+			IdempotentKey: uuid.New(),
+			Body:          eventBytes,
+			Method:        "CreateEvent",
+			TimeStamp:     time.Now(),
+			Retries:       0,
+		}
+		if err := h.outboxRepo.WithTx(tx).StashMessage(ctx, outboxMsg); err != nil {
+			return err
 		}
 
 		return nil

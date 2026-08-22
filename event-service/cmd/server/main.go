@@ -6,12 +6,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
+	outboxsvc "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/service/outbox"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
 	"github.com/rs/zerolog/log"
@@ -41,17 +44,26 @@ func main() {
 
 	eventRepo := repo.NewEventRepo(conn)
 	locationRepo := repo.NewLocationRepo(conn)
+	outboxRepo := outboxrepo.NewOutboxRepo(conn)
 
+	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 	queryQueue := os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE")
-	queryBroker, err := rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
+	eventToLectureQueue := os.Getenv("RABBITMQ_EVENT_TO_LECTURE_QUEUE")
+
+	queryBroker, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	if err := queryBroker.NewQueueRequester(ctx, queryBroker.Connection, queryQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to create requester for queue %s", queryQueue)
+	for _, queue := range []string{queryQueue, eventToLectureQueue} {
+		if err := queryBroker.NewQueueRequester(ctx, queryBroker.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create requester for queue %s", queue)
+		}
 	}
 
-	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker)
+	outboxProcessor := outboxsvc.NewOutboxProcessor(outboxRepo, queryBroker)
+	outboxProcessor.StartPoller(ctx, 2*time.Second)
+
+	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo)
 
 	grpcServer := grpc.NewServer()
 	event.RegisterEventServiceServer(grpcServer, eventServer)

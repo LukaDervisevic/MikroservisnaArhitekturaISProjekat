@@ -15,6 +15,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/cqrs/query"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
 	eventpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	locationpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
 	"gorm.io/gorm"
@@ -41,6 +42,7 @@ func NewGrpcServer(
 	eventRepo *repo.EventRepo,
 	locationRepo *repo.LocationRepo,
 	queryBroker *rabbitmq.PublisherConn,
+	outboxRepo *outboxrepo.OutboxRepo,
 ) *GrpcServer {
 	return &GrpcServer{
 		createLocationHandler:    command.NewCreateLocationHandler(locationRepo),
@@ -50,9 +52,9 @@ func NewGrpcServer(
 		getLocationByNameHandler: query.NewGetLocationByNameHandler(locationRepo),
 		listLocationsHandler:     query.NewListLocationsHandler(locationRepo),
 
-		createEventHandler: command.NewCreateEventHandler(db, eventRepo, locationRepo, queryBroker),
-		updateEventHandler: command.NewUpdateEventHandler(db, eventRepo, locationRepo, queryBroker),
-		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker),
+		createEventHandler: command.NewCreateEventHandler(db, eventRepo, locationRepo, queryBroker, outboxRepo),
+		updateEventHandler: command.NewUpdateEventHandler(db, eventRepo, locationRepo, queryBroker, outboxRepo),
+		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker, outboxRepo),
 	}
 }
 

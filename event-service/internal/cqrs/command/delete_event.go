@@ -11,6 +11,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -33,10 +34,11 @@ type DeleteEventHandler struct {
 	db               *gorm.DB
 	eventCommandRepo repo.IEventCommandRepo
 	broker           *rabbitmq.PublisherConn
+	outboxRepo       *outboxrepo.OutboxRepo
 }
 
-func NewDeleteEventHandler(db *gorm.DB, eventCommandRepo repo.IEventCommandRepo, broker *rabbitmq.PublisherConn) *DeleteEventHandler {
-	return &DeleteEventHandler{db: db, eventCommandRepo: eventCommandRepo, broker: broker}
+func NewDeleteEventHandler(db *gorm.DB, eventCommandRepo repo.IEventCommandRepo, broker *rabbitmq.PublisherConn, outboxRepo *outboxrepo.OutboxRepo) *DeleteEventHandler {
+	return &DeleteEventHandler{db: db, eventCommandRepo: eventCommandRepo, broker: broker, outboxRepo: outboxRepo}
 }
 
 func (h *DeleteEventHandler) Handle(ctx context.Context, cmd DeleteEventCommand) (*model.Event, error) {
@@ -52,7 +54,7 @@ func (h *DeleteEventHandler) Handle(ctx context.Context, cmd DeleteEventCommand)
 	}
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.eventCommandRepo.DeleteEvent(ctx, cmd.Id); err != nil {
+		if err := h.eventCommandRepo.WithTx(tx).DeleteEvent(ctx, cmd.Id); err != nil {
 			return status.Error(codes.Internal, "failed to delete event")
 		}
 
@@ -61,7 +63,7 @@ func (h *DeleteEventHandler) Handle(ctx context.Context, cmd DeleteEventCommand)
 			return fmt.Errorf("unable to marshal event with location query")
 		}
 
-		msg := rabbitmq.Message{
+		queryMsg := rabbitmq.Message{
 			IdempotentKey: uuid.New(),
 			Body:          eventWithLocationQuery,
 			Method:        "DeleteEventWithLocation",
@@ -70,16 +72,32 @@ func (h *DeleteEventHandler) Handle(ctx context.Context, cmd DeleteEventCommand)
 		}
 
 		var msgByte []byte
-		msgByte, err = json.Marshal(msg)
+		msgByte, err = json.Marshal(queryMsg)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to encode a message with key %s", msg.IdempotentKey.String())
+			log.Error().Err(err).Msgf("unable to encode a message with key %s", queryMsg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to marshal event")
 		}
 
 		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"), true)
 		if err != nil {
-			log.Error().Err(err).Msgf("unable to publish a message with key %s", msg.IdempotentKey.String())
+			log.Error().Err(err).Msgf("unable to publish a message with key %s", queryMsg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish event")
+		}
+
+		eventBytes, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("unable to marshal event for outbox")
+		}
+
+		outboxMsg := rabbitmq.Message{
+			IdempotentKey: uuid.New(),
+			Body:          eventBytes,
+			Method:        "DeleteEvent",
+			TimeStamp:     time.Now(),
+			Retries:       0,
+		}
+		if err := h.outboxRepo.WithTx(tx).StashMessage(ctx, outboxMsg); err != nil {
+			return err
 		}
 
 		return nil
