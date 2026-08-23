@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
@@ -28,20 +29,27 @@ type GrpcServer struct {
 	deleteLectureHandler *command.DeleteLectureHandler
 
 	lecturepb.UnimplementedLectureServiceServer
+	lecturerClient lecturerpb.LecturerServiceClient
+	eventClient    eventpb.EventServiceClient
 }
 
 func NewGrpcServer(
 	db *gorm.DB,
 	publisherConn *rabbitmq.PublisherConn,
+	lecturerClient lecturerpb.LecturerServiceClient,
+	eventClient eventpb.EventServiceClient,
 	sagaReplies *saga.SagaReplyRegistry,
 	lectureRepo *repo.LectureRepo,
 	eventRepo *repo.EventRepo,
 	lecturerRepo *repo.LecturerRepo,
 ) *GrpcServer {
+
 	return &GrpcServer{
 		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn),
 		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, publisherConn, sagaReplies),
 		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, publisherConn),
+		eventClient:          eventClient,
+		lecturerClient:       lecturerClient,
 	}
 }
 
@@ -49,6 +57,34 @@ func (g *GrpcServer) CreateLecture(ctx context.Context, req *lecturepb.CreateLec
 	if req == nil || req.Name == "" || req.EventId == 0 || req.LecturerId == 0 {
 		return nil, status.Error(codes.InvalidArgument, "name, event_id and lecturer_id are required for lecture creation")
 	}
+	lecturerValidChan := make(chan error, 1)
+	eventValidChan := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		res, err := g.lecturerClient.GetLecturerByID(ctx, &lecturerpb.GetLecturerByIDRequest{Id: req.LecturerId})
+		if err != nil || res == nil {
+			lecturerValidChan <- err
+			return
+		}
+		lecturerValidChan <- nil
+	})
+	wg.Go(func() {
+		res, err := g.eventClient.GetEventByID(ctx, &eventpb.GetEventByIdRequest{Id: req.EventId})
+		if err != nil || res == nil {
+			eventValidChan <- err
+			return
+		}
+		eventValidChan <- nil
+	})
+	wg.Wait()
+
+	if <-lecturerValidChan != nil {
+		return nil, status.Error(codes.Internal, "lecturer doesn't exist")
+	}
+	if <-eventValidChan != nil {
+		return nil, status.Error(codes.Internal, "event doesn't exist")
+	}
+
 	lecture, err := g.createLectureHandler.Handle(ctx, command.CreateLectureCommand{
 		EventID: req.EventId, LecturerID: req.LecturerId, Name: req.Name, Duration: req.Duration.GetSeconds(),
 	})

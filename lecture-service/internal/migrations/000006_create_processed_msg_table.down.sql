@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS lecture_service.processed_messages;

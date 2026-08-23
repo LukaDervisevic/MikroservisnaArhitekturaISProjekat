@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -10,6 +11,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/db"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/client"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
@@ -77,7 +79,31 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(conn, publisherConn, sagaReplies, lectureRepo, eventRepo, lecturerRepo))
+	lecturerClient, closerLecturer, err := client.NewLecturerClient(os.Getenv("LECTURER_SERVICE_ADDR") + ":" + os.Getenv("LECTURER_SERVICE_PORT"))
+	defer func(closer io.Closer) {
+		err := closer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to connect to lecturer service")
+		}
+	}(closerLecturer)
+
+	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("LECTURER_SERVICE_ADDR") + ":" + os.Getenv("LECTURER_SERVICE_PORT"))
+	defer func(closer io.Closer) {
+		err := closer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to connect to event service")
+		}
+	}(closerEvent)
+
+	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(
+		conn,
+		publisherConn,
+		lecturerClient,
+		eventClient,
+		sagaReplies,
+		lectureRepo,
+		eventRepo,
+		lecturerRepo))
 
 	go func() {
 		log.Printf("starting lecture service grpc server on port %v...", port)
