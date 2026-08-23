@@ -13,12 +13,8 @@ func LoadEnv() error {
 		env = "local"
 	}
 	envPath := fmt.Sprintf(".env.%s", env)
-	err := godotenv.Load(envPath)
-	if err != nil {
-		err = godotenv.Load(fmt.Sprintf("./lecture-service/%s", envPath))
-		if err != nil {
-			return err
-		}
+	if err := godotenv.Load(envPath); err != nil {
+		_ = godotenv.Load(fmt.Sprintf("./lecture-service/%s", envPath))
 	}
 	return nil
 }

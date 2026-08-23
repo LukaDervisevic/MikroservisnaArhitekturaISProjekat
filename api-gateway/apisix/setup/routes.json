@@ -1,0 +1,210 @@
+[
+  {
+    "id": "lecturer-create",
+    "uri": "/api/lecturers",
+    "service": "lecturer.LecturerService",
+    "method": "CreateLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-get-by-id",
+    "uri": "/api/lecturers/get-by-id",
+    "service": "lecturer.LecturerService",
+    "method": "GetLecturerByID",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-get-by-name",
+    "uri": "/api/lecturers/get-by-name",
+    "service": "lecturer.LecturerService",
+    "method": "GetLecturerByName",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-list",
+    "uri": "/api/lecturers/list",
+    "service": "lecturer.LecturerService",
+    "method": "ListLecturers",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-list-by-field",
+    "uri": "/api/lecturers/list-by-field",
+    "service": "lecturer.LecturerService",
+    "method": "ListLecturersByFieldOfExpertise",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-update",
+    "uri": "/api/lecturers/update",
+    "service": "lecturer.LecturerService",
+    "method": "UpdateLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-delete",
+    "uri": "/api/lecturers/delete",
+    "service": "lecturer.LecturerService",
+    "method": "DeleteLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "event-create",
+    "uri": "/api/events",
+    "service": "event.EventService",
+    "method": "CreateEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-update",
+    "uri": "/api/events/update",
+    "service": "event.EventService",
+    "method": "UpdateEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-delete",
+    "uri": "/api/events/delete",
+    "service": "event.EventService",
+    "method": "DeleteEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-get-by-id",
+    "uri": "/api/events/get-by-id",
+    "service": "event.EventService",
+    "method": "GetEventByID",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "event-get-by-name",
+    "uri": "/api/events/get-by-name",
+    "service": "event.EventService",
+    "method": "GetEventByName",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "location-create",
+    "uri": "/api/locations",
+    "service": "location.LocationService",
+    "method": "CreateLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-update",
+    "uri": "/api/locations/update",
+    "service": "location.LocationService",
+    "method": "UpdateLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-delete",
+    "uri": "/api/locations/delete",
+    "service": "location.LocationService",
+    "method": "DeleteLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-get-by-id",
+    "uri": "/api/locations/get-by-id",
+    "service": "location.LocationService",
+    "method": "GetLocationByID",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-get-by-name",
+    "uri": "/api/locations/get-by-name",
+    "service": "location.LocationService",
+    "method": "GetLocationByName",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-list",
+    "uri": "/api/locations/list",
+    "service": "location.LocationService",
+    "method": "ListLocations",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-list-min-cap",
+    "uri": "/api/locations/list-by-min-capacity",
+    "service": "location.LocationService",
+    "method": "ListLocationsByMinCapacity",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "lecture-create",
+    "uri": "/api/lectures",
+    "service": "lecture.LectureService",
+    "method": "CreateLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-update",
+    "uri": "/api/lectures/update",
+    "service": "lecture.LectureService",
+    "method": "UpdateLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-delete",
+    "uri": "/api/lectures/delete",
+    "service": "lecture.LectureService",
+    "method": "DeleteLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-get-by-id",
+    "uri": "/api/lectures/get-by-id",
+    "service": "lecture.LectureService",
+    "method": "GetLectureByID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-get-by-name",
+    "uri": "/api/lectures/get-by-name",
+    "service": "lecture.LectureService",
+    "method": "GetLectureByName",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-list-by-event",
+    "uri": "/api/lectures/list-by-event",
+    "service": "lecture.LectureService",
+    "method": "ListLecturesByEventID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-list-by-lecturer",
+    "uri": "/api/lectures/list-by-lecturer",
+    "service": "lecture.LectureService",
+    "method": "ListLecturesByLecturerID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  }
+]

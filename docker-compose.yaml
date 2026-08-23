@@ -52,6 +52,7 @@ services:
     container_name: api_gateway
     volumes:
       - ./api-gateway/apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./api-gateway/apisix/logs:/usr/local/apisix/logs/access
     depends_on:
       etcd:
         condition: service_healthy
@@ -63,6 +64,41 @@ services:
       - "9092:9092/tcp"  # Control API
     networks:
       - apisix
+      - mais-backend
+    healthcheck:
+      test: [ "CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9080" ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+  apisix-setup:
+    container_name: apisix-setup
+    build:
+      context: ./api-gateway/apisix/setup
+      dockerfile: Dockerfile
+    volumes:
+      - ./proto:/workspace/proto:ro
+      - ./api-gateway/apisix/logs:/workspace/logs
+    working_dir: /workspace
+    environment:
+      APISIX_ADMIN_URL: http://apisix:9180
+      APISIX_ADMIN_KEY: gT7uHTRXinZ0yAFJ2x+lUcImg8k/a506MihsDsthmEY=test
+    depends_on:
+      apisix:
+        condition: service_healthy
+      lecturer-service:
+        condition: service_started
+      event-service:
+        condition: service_started
+      event-query-service:
+        condition: service_started
+      lecture-service:
+        condition: service_started
+      lecture-query-service:
+        condition: service_started
+    networks:
+      - apisix
+    restart: "no"
 
   etcd:
     image: bitnamilegacy/etcd:3.5.11
