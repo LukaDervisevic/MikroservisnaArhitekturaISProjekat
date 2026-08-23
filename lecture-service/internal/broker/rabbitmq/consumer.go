@@ -54,6 +54,7 @@ type ConsumerConn struct {
 	responders    map[string]rmq.Responder
 	db            *gorm.DB
 	eventRepo     repo.IEventWriteRepo
+	locationRepo  repo.ILocationWriteRepo
 	lecturerRepo  repo.ILecturerWriteRepo
 	lectureRepo   *repo.LectureRepo
 	sagaReplies   *saga.SagaReplyRegistry
@@ -66,6 +67,7 @@ func NewConsumerConn(
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
 	eventRepo repo.IEventWriteRepo,
+	locationRepo repo.ILocationWriteRepo,
 	lecturerRepo repo.ILecturerWriteRepo,
 	lectureRepo *repo.LectureRepo,
 	sagaReplies *saga.SagaReplyRegistry,
@@ -84,6 +86,7 @@ func NewConsumerConn(
 		responders:    make(map[string]rmq.Responder),
 		db:            db,
 		eventRepo:     eventRepo,
+		locationRepo:  locationRepo,
 		lecturerRepo:  lecturerRepo,
 		lectureRepo:   lectureRepo,
 		sagaReplies:   sagaReplies,
@@ -183,6 +186,7 @@ func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr err
 
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
 	events := b.eventRepo.WithTx(tx)
+	locations := b.locationRepo.WithTx(tx)
 	lecturers := b.lecturerRepo.WithTx(tx)
 
 	switch msg.Method {
@@ -206,6 +210,27 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 			return err
 		}
 		return events.DeleteEvent(ctx, event.Id)
+
+	case "CreateLocation":
+		location, err := decode[model.Location](msg.Body)
+		if err != nil {
+			return err
+		}
+		return locations.CreateLocation(ctx, location)
+
+	case "UpdateLocation":
+		location, err := decode[model.Location](msg.Body)
+		if err != nil {
+			return err
+		}
+		return locations.UpdateLocation(ctx, location)
+
+	case "DeleteLocation":
+		location, err := decode[model.Location](msg.Body)
+		if err != nil {
+			return err
+		}
+		return locations.DeleteLocation(ctx, location.Id)
 
 	case "CreateLecturer":
 		lecturer, err := decode[model.Lecturer](msg.Body)

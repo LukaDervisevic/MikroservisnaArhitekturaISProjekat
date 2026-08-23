@@ -15,6 +15,7 @@ import (
 	lecturepb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	lecturerpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer"
 	locationpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -78,10 +79,12 @@ func (g *GrpcServer) CreateLecture(ctx context.Context, req *lecturepb.CreateLec
 	})
 	wg.Wait()
 
-	if <-lecturerValidChan != nil {
+	if err := <-lecturerValidChan; err != nil {
+		log.Error().Err(err).Str("code", status.Code(err).String()).Msg("lecture check failed")
 		return nil, status.Error(codes.Internal, "lecturer doesn't exist")
 	}
-	if <-eventValidChan != nil {
+	if err := <-eventValidChan; err != nil {
+		log.Error().Err(err).Str("code", status.Code(err).String()).Msg("event check failed")
 		return nil, status.Error(codes.Internal, "event doesn't exist")
 	}
 

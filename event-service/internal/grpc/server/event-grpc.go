@@ -33,6 +33,8 @@ type GrpcServer struct {
 	updateEventHandler *command.UpdateEventHandler
 	deleteEventHandler *command.DeleteEventHandler
 
+	getEventByIDHandler *query.GetEventByIDHandler
+
 	eventpb.UnimplementedEventServiceServer
 	locationpb.UnimplementedLocationServiceServer
 }
@@ -45,9 +47,9 @@ func NewGrpcServer(
 	outboxRepo *outboxrepo.OutboxRepo,
 ) *GrpcServer {
 	return &GrpcServer{
-		createLocationHandler:    command.NewCreateLocationHandler(locationRepo),
-		updateLocationHandler:    command.NewUpdateLocationHandler(locationRepo, locationRepo),
-		deleteLocationHandler:    command.NewDeleteLocationHandler(locationRepo, locationRepo),
+		createLocationHandler:    command.NewCreateLocationHandler(db, locationRepo, outboxRepo),
+		updateLocationHandler:    command.NewUpdateLocationHandler(db, locationRepo, locationRepo, outboxRepo),
+		deleteLocationHandler:    command.NewDeleteLocationHandler(db, locationRepo, locationRepo, outboxRepo),
 		getLocationByIDHandler:   query.NewGetLocationByIDHandler(locationRepo),
 		getLocationByNameHandler: query.NewGetLocationByNameHandler(locationRepo),
 		listLocationsHandler:     query.NewListLocationsHandler(locationRepo),
@@ -55,6 +57,8 @@ func NewGrpcServer(
 		createEventHandler: command.NewCreateEventHandler(db, eventRepo, locationRepo, queryBroker, outboxRepo),
 		updateEventHandler: command.NewUpdateEventHandler(db, eventRepo, locationRepo, queryBroker, outboxRepo),
 		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker, outboxRepo),
+
+		getEventByIDHandler: query.NewGetEventByIDHandler(eventRepo),
 	}
 }
 
@@ -196,6 +200,17 @@ func (g *GrpcServer) CreateEvent(ctx context.Context, req *eventpb.CreateEventRe
 	return &eventpb.CreateEventResponse{Event: eventModelToProto(event)}, nil
 }
 
+func (g *GrpcServer) GetEventByID(ctx context.Context, req *eventpb.GetEventByIdRequest) (*eventpb.GetEventByIdQueryResponse, error) {
+	if req == nil || req.Id == 0 {
+		return nil, status.Error(codes.InvalidArgument, "id is required for event retrieval")
+	}
+	event, err := g.getEventByIDHandler.Handle(ctx, query.GetEventByIDQuery{Id: req.Id})
+	if err != nil {
+		return nil, err
+	}
+	return &eventpb.GetEventByIdQueryResponse{EventWithLocation: eventWithLocationModelToProto(event)}, nil
+}
+
 func (g *GrpcServer) UpdateEvent(ctx context.Context, req *eventpb.UpdateEventRequest) (*emptypb.Empty, error) {
 	if req == nil || req.Id == 0 {
 		return nil, status.Error(codes.InvalidArgument, "id is required for event update")
@@ -236,5 +251,23 @@ func eventModelToProto(e *model.Event) *eventpb.Event {
 		Id: e.Id, Name: e.Name, CotisationPrice: e.CotisationPrice, Agenda: e.Agenda, Type: e.Type,
 		DateTime: timestamppb.New(time.Unix(e.DateTime, 0)),
 		Location: locationModelToProto(e.Location),
+	}
+}
+
+func eventWithLocationModelToProto(e *model.EventWithLocation) *eventpb.EventWithLocation {
+	if e == nil {
+		return nil
+	}
+	return &eventpb.EventWithLocation{
+		EventId:              e.EventId,
+		EventName:            e.EventName,
+		EventCotisationPrice: e.EventCotisationPrice,
+		EventAgenda:          e.EventAgenda,
+		EventType:            e.EventType,
+		EventDateTime:        timestamppb.New(time.Unix(e.EventDateTime, 0)),
+		LocationId:           e.LocationID,
+		LocationName:         e.LocationName,
+		LocationAddress:      e.LocationAddress,
+		LocationCapacity:     e.LocationCapacity,
 	}
 }

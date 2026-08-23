@@ -59,9 +59,10 @@ func main() {
 	sagaReplies := saga.NewSagaReplyRegistry()
 	lectureRepo := repo.NewLectureRepo(conn)
 	eventRepo := repo.NewEventRepo(conn)
+	locationRepo := repo.NewLocationRepo(conn)
 	lecturerRepo := repo.NewLecturerRepo(conn)
 
-	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo, lectureRepo, sagaReplies, publisherConn)
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, locationRepo, lecturerRepo, lectureRepo, sagaReplies, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
@@ -87,7 +88,7 @@ func main() {
 		}
 	}(closerLecturer)
 
-	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("LECTURER_SERVICE_ADDR") + ":" + os.Getenv("LECTURER_SERVICE_PORT"))
+	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("EVENT_SERVICE_ADDR") + ":" + os.Getenv("EVENT_SERVICE_PORT"))
 	defer func(closer io.Closer) {
 		err := closer.Close()
 		if err != nil {
