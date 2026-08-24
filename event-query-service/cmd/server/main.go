@@ -56,8 +56,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to establish consumer connection to rabbitmq broker")
 	}
-	if err := consumerConn.NewQueueResponder(ctx, eventQueryQueue); err != nil {
-		log.Fatal().Err(err).Msgf("unable to create a responder for queue %s", eventQueryQueue)
+	if err := consumerConn.NewQueueConsumer(ctx, eventQueryQueue); err != nil {
+		log.Fatal().Err(err).Msgf("unable to create a consumer for queue %s", eventQueryQueue)
 	}
 
 	stop := make(chan os.Signal, 1)

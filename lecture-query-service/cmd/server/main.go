@@ -59,16 +59,16 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	if err := publisherConn.NewQueueRequester(ctx, publisherConn.Connection, replyToLectureQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to create requester for queue %s", replyToLectureQueue)
+	if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, replyToLectureQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", replyToLectureQueue)
 	}
 
 	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
-	if err := consumerConn.NewQueueResponder(ctx, lectureQueryQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to start responder for queue %s", lectureQueryQueue)
+	if err := consumerConn.NewQueueConsumer(ctx, lectureQueryQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", lectureQueryQueue)
 	}
 
 	stop := make(chan os.Signal, 1)

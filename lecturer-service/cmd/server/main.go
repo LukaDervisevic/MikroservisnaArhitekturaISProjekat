@@ -52,16 +52,16 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	if err := publisherConn.NewQueueRequester(ctx, publisherConn.Connection, toLectureQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to create requester for queue %s", toLectureQueue)
+	if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, toLectureQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", toLectureQueue)
 	}
 
 	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, sagaReplies)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
-	if err := consumerConn.NewQueueResponder(ctx, replyToLecturerQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to start responder for queue %s", replyToLecturerQueue)
+	if err := consumerConn.NewQueueConsumer(ctx, replyToLecturerQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", replyToLecturerQueue)
 	}
 
 	outboxProcessor := outbox.NewOutboxProcessor(outboxRepo, publisherConn)

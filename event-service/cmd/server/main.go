@@ -55,8 +55,8 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
 	for _, queue := range []string{queryQueue, eventToLectureQueue} {
-		if err := queryBroker.NewQueueRequester(ctx, queryBroker.Connection, queue); err != nil {
-			log.Fatal().Err(err).Msgf("failed to create requester for queue %s", queue)
+		if err := queryBroker.NewQueuePublisher(ctx, queryBroker.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
 		}
 	}
 

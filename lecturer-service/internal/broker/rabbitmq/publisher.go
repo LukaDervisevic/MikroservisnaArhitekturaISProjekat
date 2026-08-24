@@ -15,7 +15,7 @@ type PublisherConn struct {
 	BrokerURI   string
 	Environment *rmq.Environment
 	Connection  *rmq.AmqpConnection
-	Requesters  map[string]rmq.Requester
+	Publishers  map[string]*rmq.Publisher
 }
 
 func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) (*PublisherConn, error) {
@@ -28,35 +28,38 @@ func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.Am
 		BrokerURI:   brokerURI,
 		Environment: env,
 		Connection:  conn,
-		Requesters:  make(map[string]rmq.Requester),
+		Publishers:  make(map[string]*rmq.Publisher),
 	}, nil
 }
 
-func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
+func (b *PublisherConn) NewQueuePublisher(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
 	if conn == nil {
 		return fmt.Errorf("publisher connection is nil to queue %s", queueName)
 	}
-	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
-	if err != nil {
-		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+
+	mgmt := conn.Management()
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
-	b.Requesters[queueName] = requester
+
+	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: queueName}, nil)
+	if err != nil {
+		return fmt.Errorf("create publisher for queue %s: %w", queueName, err)
+	}
+	b.Publishers[queueName] = publisher
 	return nil
 }
 
 func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {
-	if b == nil || b.Requesters[queueName] == nil {
-		return fmt.Errorf("rabbitmq requester is not initialized")
+	if b == nil || b.Publishers[queueName] == nil {
+		return fmt.Errorf("rabbitmq publisher is not initialized for queue %s", queueName)
 	}
 	msg := rmq.NewMessage(body)
 	msg.Header = &amqp.MessageHeader{Durable: durable}
-	_, err := b.Requesters[queueName].Publish(ctx, msg)
+	_, err := b.Publishers[queueName].Publish(ctx, msg)
 	return err
 }
 
-// PublishSaga wraps body in a Message envelope carrying sagaID and publishes it.
-// sagaID is propagated unchanged along the whole saga chain so every participant
-// can correlate the reply that travels back to it.
 func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaID uuid.UUID, method string, body any) error {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {

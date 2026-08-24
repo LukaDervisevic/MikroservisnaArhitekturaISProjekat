@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/go-amqp"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
@@ -51,7 +50,7 @@ type ConsumerConn struct {
 	mu            sync.RWMutex
 	Environment   *rmq.Environment
 	Connection    *rmq.AmqpConnection
-	responders    map[string]rmq.Responder
+	consumers     map[string]*rmq.Consumer
 	db            *gorm.DB
 	eventRepo     repo.IEventWriteRepo
 	locationRepo  repo.ILocationWriteRepo
@@ -83,7 +82,7 @@ func NewConsumerConn(
 		seen:          make(map[uuid.UUID]struct{}),
 		Environment:   env,
 		Connection:    conn,
-		responders:    make(map[string]rmq.Responder),
+		consumers:     make(map[string]*rmq.Consumer),
 		db:            db,
 		eventRepo:     eventRepo,
 		locationRepo:  locationRepo,
@@ -94,31 +93,53 @@ func NewConsumerConn(
 	}, nil
 }
 
-func (b *ConsumerConn) NewQueueResponder(ctx context.Context, queueName string) error {
+func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) error {
 	if b.Connection == nil {
 		return errors.New("no broker connection")
 	}
 
-	responder, err := b.Connection.NewResponder(ctx, rmq.ResponderOptions{
-		RequestQueue: queueName,
-		Handler:      b.handle,
-	})
-	if err != nil {
-		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+	mgmt := b.Connection.Management()
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
 
-	b.responders[queueName] = responder
+	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
+	if err != nil {
+		return fmt.Errorf("create consumer for queue %s: %w", queueName, err)
+	}
+
+	b.consumers[queueName] = consumer
+	go b.consumeLoop(ctx, consumer)
 	return nil
 }
 
-func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp.Message, error) {
-	if len(request.Data) == 0 {
-		return nil, errors.New("empty message payload")
+func (b *ConsumerConn) consumeLoop(ctx context.Context, consumer *rmq.Consumer) {
+	for {
+		delivery, err := consumer.Receive(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			log.Error().Err(err).Msg("failed to receive message")
+			continue
+		}
+		b.handle(ctx, delivery)
+	}
+}
+
+func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext) {
+	amqpMsg := delivery.Message()
+	if len(amqpMsg.Data) == 0 {
+		log.Error().Msg("empty message payload, discarding")
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	var msg Message
-	if err := json.Unmarshal(request.Data[0], &msg); err != nil {
-		return nil, fmt.Errorf("unmarshal envelope: %w", err)
+	if err := json.Unmarshal(amqpMsg.Data[0], &msg); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal envelope, discarding")
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	log.Info().Msgf("received message %s (%s)", msg.IdempotentKey, msg.Method)
@@ -128,7 +149,8 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 	b.mu.RUnlock()
 	if cached {
 		log.Info().Msgf("message %s already processed, acking", msg.IdempotentKey)
-		return nil, nil
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	err := b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -146,7 +168,8 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 
 	if isDuplicateKey(err) {
 		b.remember(msg.IdempotentKey)
-		return nil, nil // committed by someone else; still a success
+		_ = delivery.Accept(ctx) // committed by someone else; still a success
+		return
 	}
 
 	// Reply upstream only once the local tx has resolved, so we never report a
@@ -155,12 +178,13 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 
 	if err != nil {
 		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		return nil, err // rolled back, safe to redeliver
+		_ = delivery.Requeue(ctx) // rolled back, safe to redeliver
+		return
 	}
 
 	b.remember(msg.IdempotentKey)
 	log.Info().Msgf("processed %s for message %s", msg.Method, msg.IdempotentKey)
-	return nil, nil
+	_ = delivery.Accept(ctx)
 }
 
 // replyUpstream tells the previous service in the saga chain whether this
@@ -299,8 +323,8 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 }
 
 // awaitDownstream forwards the saga to the next service and blocks until that
-// service reports back. The reply arrives on a different queue served by its own
-// responder goroutine, so this wait cannot deadlock the reply path.
+// service reports back on its own reply queue, consumed asynchronously by this
+// service's own responder goroutine, so this wait cannot deadlock the reply path.
 func (b *ConsumerConn) awaitDownstream(ctx context.Context, sagaID uuid.UUID, queue, method string, body any) error {
 	ch := b.sagaReplies.Register(sagaID)
 	defer b.sagaReplies.Unregister(sagaID)

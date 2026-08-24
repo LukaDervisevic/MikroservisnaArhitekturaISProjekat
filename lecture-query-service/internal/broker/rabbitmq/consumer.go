@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/go-amqp"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/repo"
 	"github.com/google/uuid"
@@ -39,7 +38,7 @@ type ConsumerConn struct {
 	mutex            *sync.RWMutex
 	Environment      *rmq.Environment
 	Connection       *rmq.AmqpConnection
-	responders       map[string]*rmq.Responder
+	consumers        map[string]*rmq.Consumer
 	db               *gorm.DB
 	lectureQueryRepo repo.ILectureQueryRepo
 	publisherConn    *PublisherConn
@@ -63,37 +62,60 @@ func NewConsumerConn(ctx context.Context,
 		mutex:            lock,
 		Environment:      env,
 		Connection:       conn,
-		responders:       make(map[string]*rmq.Responder),
+		consumers:        make(map[string]*rmq.Consumer),
 		db:               db,
 		lectureQueryRepo: lecturerQueryRepo,
 		publisherConn:    publisherConn,
 	}, nil
 }
 
-func (b *ConsumerConn) NewQueueResponder(ctx context.Context, queueName string) error {
+func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) error {
 	if b.Connection == nil {
 		return errors.New("broken consumer connection")
 	}
 
-	responder, err := b.Connection.NewResponder(ctx, rmq.ResponderOptions{
-		RequestQueue: queueName,
-		Handler:      b.handle,
-	})
-	if err != nil {
-		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+	mgmt := b.Connection.Management()
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
-	b.responders[queueName] = &responder
+
+	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
+	if err != nil {
+		return fmt.Errorf("create consumer for queue %s: %w", queueName, err)
+	}
+
+	b.consumers[queueName] = consumer
+	go b.consumeLoop(ctx, consumer)
 	return nil
 }
 
-func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp.Message, error) {
-	if len(request.Data) == 0 {
-		return nil, errors.New("empty message payload")
+func (b *ConsumerConn) consumeLoop(ctx context.Context, consumer *rmq.Consumer) {
+	for {
+		delivery, err := consumer.Receive(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			log.Error().Err(err).Msg("failed to receive message")
+			continue
+		}
+		b.handle(ctx, delivery)
+	}
+}
+
+func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext) {
+	amqpMsg := delivery.Message()
+	if len(amqpMsg.Data) == 0 {
+		log.Error().Msg("empty message payload, discarding")
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	var msg Message
-	if err := json.Unmarshal(request.Data[0], &msg); err != nil {
-		return nil, fmt.Errorf("unmarshal failed %w", err)
+	if err := json.Unmarshal(amqpMsg.Data[0], &msg); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal envelope, discarding")
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	b.mutex.RLock()
@@ -101,7 +123,8 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 	b.mutex.RUnlock()
 	if cached {
 		log.Info().Msgf("message %s already processed, acking", msg.IdempotentKey)
-		return nil, nil
+		_ = delivery.Accept(ctx)
+		return
 	}
 
 	err := b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -119,7 +142,8 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 
 	if isDuplicateKey(err) {
 		b.remember(msg.IdempotentKey)
-		return nil, nil // committed by someone else; still a success
+		_ = delivery.Accept(ctx) // committed by someone else; still a success
+		return
 	}
 
 	// End of the saga chain: report the outcome back to lecture-service, which
@@ -128,11 +152,12 @@ func (b *ConsumerConn) handle(ctx context.Context, request *amqp.Message) (*amqp
 
 	if err != nil {
 		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		return nil, err // rolled back, safe to redeliver
+		_ = delivery.Requeue(ctx) // rolled back, safe to redeliver
+		return
 	}
 	b.remember(msg.IdempotentKey)
 	log.Info().Msgf("processed %s for message %s", msg.Method, msg.IdempotentKey)
-	return nil, nil
+	_ = delivery.Accept(ctx)
 }
 
 func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr error) {
@@ -225,94 +250,3 @@ func isDuplicateKey(err error) bool {
 
 	return false
 }
-
-//func (b *ConsumerConn) NewQueueResponder(ctx context.Context, conn *rmq.AmqpConnection, queueName string) {
-//	if conn == nil {
-//		return
-//	}
-//	responder, err := conn.NewResponder(ctx, rmq.ResponderOptions{
-//		RequestQueue: queueName,
-//		Handler: func(handlerCtx context.Context, request *amqp.Message) (*amqp.Message, error) {
-//			var payload []byte
-//			if len(request.Data) > 0 {
-//				payload = request.Data[0]
-//			}
-//
-//			var message Message
-//			if err := json.Unmarshal(payload, &message); err != nil {
-//				log.Error().Err(err).Msg("failed to unmarshal message payload")
-//				return nil, err
-//			}
-//
-//			log.Info().Msgf("received message with id {%s}", message.IdempotentKey.String())
-//
-//			b.mutex.RLock()
-//			_, consumed := b.IdempotencyRepo[message.IdempotentKey]
-//			b.mutex.RUnlock()
-//			if consumed {
-//				log.Error().Msgf("message with id {%s} has already been consumed", message.IdempotentKey.String())
-//				return nil, fmt.Errorf("message with id {%s} has already been consumed", message.IdempotentKey.String())
-//			}
-//
-//			err := b.db.WithContext(handlerCtx).Transaction(func(tx *gorm.DB) error {
-//				txRepo := b.lectureQueryRepo.WithTx(tx)
-//
-//				switch message.Method {
-//				case "CreateLectureQuery":
-//					v, ok := message.Body.(model.LectureQuery)
-//					if !ok {
-//						log.Error().Msg("failed to cast to lecture query model")
-//						return messageCastError
-//					}
-//					if err := txRepo.CreateLecture(ctx, &v); err != nil {
-//						log.Error().Err(err).Msgf("failed to create lecture query model in tx for msg %s", message.IdempotentKey)
-//						return err
-//					}
-//				case "UpdateEventWithLocation":
-//					v, ok := message.Body.(model.LectureQuery)
-//					if !ok {
-//						log.Error().Msg("failed to cast to lecture query model")
-//						return messageCastError
-//					}
-//					if err := txRepo.UpdateLecture(ctx, &v); err != nil {
-//						log.Error().Err(err).Msgf("failed to update lecture query model in tx for msg %s", message.IdempotentKey)
-//						return err
-//					}
-//				case "DeleteEventWithLocation":
-//					v, ok := message.Body.(model.LectureQuery)
-//					if !ok {
-//						log.Error().Msg("failed to cast to lecture query model")
-//						return messageCastError
-//					}
-//					if err := txRepo.DeleteLecture(ctx, v.LectureID, v.LecturerId, v.EventId); err != nil {
-//						log.Error().Err(err).Msgf("failed to delete lecture query model in tx for msq %s", message.IdempotentKey)
-//						return err
-//					}
-//				default:
-//					return fmt.Errorf("unknown method type %s", message.Method)
-//				}
-//				return nil
-//			})
-//
-//			// Rollback
-//			if err != nil {
-//				return nil, err
-//			}
-//
-//			b.Mutex.Lock()
-//			var rawMsg Message
-//			_ = json.Unmarshal(payload, &rawMsg)
-//			b.IdempotencyRepo[message.IdempotentKey] = rawMsg
-//			b.Mutex.Unlock()
-//
-//			log.Info().Msgf("successfully processed method %s for message id {%s}", message.Method, message.IdempotentKey.String())
-//			return nil, nil
-//		},
-//	})
-//
-//	if err != nil {
-//		log.Error().Msgf("failed to create a new responder for queue %s", queueName)
-//		return
-//	}
-//	b.Responder = responder
-//}
