@@ -7,11 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/db"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/client"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/interceptors"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
@@ -80,7 +82,12 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	lecturerClient, closerLecturer, err := client.NewLecturerClient(os.Getenv("LECTURER_SERVICE_ADDR") + ":" + os.Getenv("LECTURER_SERVICE_PORT"))
+
+	var maxFailuresLectureService uint64 = 5
+	lectureCircuitBreaker := interceptors.NewCircuitBreaker(maxFailuresLectureService, time.Second*60)
+
+	lecturerClient, closerLecturer, err := client.NewLecturerClient(os.Getenv("LECTURER_SERVICE_ADDR")+":"+os.Getenv("LECTURER_SERVICE_PORT"),
+		"lecture-service", lectureCircuitBreaker)
 	defer func(closer io.Closer) {
 		err := closer.Close()
 		if err != nil {
@@ -88,7 +95,11 @@ func main() {
 		}
 	}(closerLecturer)
 
-	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("EVENT_SERVICE_ADDR") + ":" + os.Getenv("EVENT_SERVICE_PORT"))
+	var maxFailuresEventService uint64 = 5
+	eventCircuitBreaker := interceptors.NewCircuitBreaker(maxFailuresEventService, time.Second*60)
+
+	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("EVENT_SERVICE_ADDR")+":"+os.Getenv("EVENT_SERVICE_PORT"),
+		"event-service", eventCircuitBreaker)
 	defer func(closer io.Closer) {
 		err := closer.Close()
 		if err != nil {

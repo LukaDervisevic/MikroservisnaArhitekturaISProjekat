@@ -23,24 +23,6 @@ func isRetriable(grpcCode codes.Code) bool {
 		grpcCode != codes.PermissionDenied
 }
 
-var LoggerInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	err := invoker(ctx, method, req, reply, cc, opts...)
-	st, _ := status.FromError(err)
-	switch st.Code() {
-	case codes.OK:
-		log.Info().Msg(fmt.Sprintf("method %s called", method))
-	case codes.DeadlineExceeded:
-		log.Error().Msg(fmt.Sprintf("time exceeded for method %s", method))
-	}
-	return err
-}
-
-var TimeoutInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-	ctxt, cancel := context.WithTimeout(ctx, time.Duration(70)*time.Millisecond)
-	defer cancel()
-	return invoker(ctxt, method, req, reply, cc, opts...)
-}
-
 var RetryInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 	var err error
 	for try := 0; try < maxTries; try++ {

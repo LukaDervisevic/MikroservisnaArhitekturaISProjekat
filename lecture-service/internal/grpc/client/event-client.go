@@ -9,10 +9,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewEventClient(addr string) (eventpb.EventServiceClient, io.Closer, error) {
+func NewEventClient(addr string, serviceName string, cb *interceptors.CircuitBreaker) (eventpb.EventServiceClient, io.Closer, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
+			interceptors.CircuitBreakerInterceptor(serviceName, cb),
 			interceptors.RetryInterceptor,
 			interceptors.TimeoutInterceptor,
 			interceptors.LoggerInterceptor))

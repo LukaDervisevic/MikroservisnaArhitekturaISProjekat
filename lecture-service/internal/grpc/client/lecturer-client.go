@@ -9,10 +9,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewLecturerClient(addr string) (lecturerpb.LecturerServiceClient, io.Closer, error) {
+func NewLecturerClient(addr string, serviceName string, cb *interceptors.CircuitBreaker) (lecturerpb.LecturerServiceClient, io.Closer, error) {
 	conn, err := grpc.NewClient(addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
+			interceptors.CircuitBreakerInterceptor(serviceName, cb),
 			interceptors.RetryInterceptor,
 			interceptors.TimeoutInterceptor,
 			interceptors.LoggerInterceptor))
