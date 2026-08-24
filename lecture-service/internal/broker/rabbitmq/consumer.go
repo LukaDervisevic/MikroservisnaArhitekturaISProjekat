@@ -20,6 +20,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var deadLetterThreshold int64 = 10
+var deadLetterExchange string = "dlx"
+var deadLetterRoutingKey string = "lecture-dlx"
+
 type Message struct {
 	IdempotentKey uuid.UUID       `json:"idempotentKey"`
 	SagaID        uuid.UUID       `json:"sagaId"`
@@ -41,8 +45,6 @@ type DeadLetter struct {
 	CreatedAt time.Time
 }
 
-// sagaTimeout bounds the wait for lecture-query-service. It stays below the
-// initiator's timeout so a stall surfaces here rather than at every hop at once.
 const sagaTimeout = 10 * time.Second
 
 type ConsumerConn struct {
@@ -99,7 +101,11 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 	}
 
 	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
+		Name:                 queueName,
+		DeliveryLimit:        deadLetterThreshold,
+		DeadLetterExchange:   deadLetterExchange,
+		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
 		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
 

@@ -17,6 +17,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var deadLetterThreshold int64 = 10
+var deadLetterExchange string = "dlx"
+var deadLetterRoutingKey string = "event-query-dlx"
+
 type Message struct {
 	IdempotentKey uuid.UUID       `json:"idempotentKey"`
 	Method        string          `json:"method"`
@@ -75,7 +79,11 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 	}
 
 	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
+		Name:                 queueName,
+		DeliveryLimit:        deadLetterThreshold,
+		DeadLetterExchange:   deadLetterExchange,
+		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
 		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
 

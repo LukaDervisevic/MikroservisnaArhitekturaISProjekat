@@ -10,12 +10,9 @@
     { "user": "admin", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" }
   ],
   "exchanges": [
-    { "name": "lecturer.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
+    { "name": "dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {}}
   ],
   "queues": [
-    { "name": "lecturer","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
-    { "name": "lecturer.retry","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
-    { "name": "lecturer.final-dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
     { "name": "mail", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
     { "name": "event-query", "vhost":  "/", "durable":  true, "auto_delete":  false, "arguments":  {}},
 
@@ -25,26 +22,54 @@
     { "name": "lecturer-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
     { "name": "lecture-query", "vhost":  "/", "durable":  true, "auto_delete": false, "arguments":  {}},
     { "name": "reply-to-lecturer", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-    { "name": "reply-to-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
+    { "name": "reply-to-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+
+    { "name": "lecturer-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "lecture-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "event-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "lecture-query-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+    { "name": "event-query-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
   ],
   "bindings": [
     {
-      "source": "lecturer.dlx",
+      "source": "dlx",
       "vhost": "/",
-      "destination": "lecturer.final-dlq",
+      "destination": "lecturer-dlx",
       "destination_type": "queue",
-      "routing_key": "",
+      "routing_key": "lecturer-dlx",
       "arguments": {}
-    }
-  ],
-  "policies": [
+    },
     {
-      "name": "DLX",
+      "source": "dlx",
       "vhost": "/",
-      "pattern": "^lecturer\\.main$",
-      "apply-to": "queues",
-      "definition": { "dead-letter-exchange": "lecturer.dlx" },
-      "priority": 0
+      "destination": "lecture-dlx",
+      "destination_type": "queue",
+      "routing-key": "lecture-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "event-dlx",
+      "destination_type": "queue",
+      "routing-key": "event-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "lecture-query-dlx",
+      "destination_type": "queue",
+      "routing-key": "lecture-query-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "event-query-dlx",
+      "destination_type": "queue",
+      "routing-key": "event-query-dlx",
+      "arguments": {}
     }
   ]
 }

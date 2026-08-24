@@ -17,6 +17,10 @@ import (
 	"gorm.io/gorm"
 )
 
+var deadLetterThreshold int64 = 10
+var deadLetterExchange = "dlx"
+var deadLetterRoutingKey = "lecturer-dlx"
+
 type Message struct {
 	IdempotentKey uuid.UUID `json:"idempotentKey"`
 	SagaID        uuid.UUID `json:"sagaId"`
@@ -38,8 +42,6 @@ type DeadLetter struct {
 	CreatedAt time.Time
 }
 
-// ConsumerConn only receives saga replies here, so it needs the db (to claim
-// idempotency keys) and the reply registry — no lecturer repository.
 type ConsumerConn struct {
 	seen        map[uuid.UUID]struct{}
 	mutex       sync.RWMutex
@@ -79,7 +81,11 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 	}
 
 	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
+		Name:                 queueName,
+		DeliveryLimit:        deadLetterThreshold,
+		DeadLetterExchange:   deadLetterExchange,
+		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
 		return fmt.Errorf("declare queue %s: %w", queueName, err)
 	}
 
