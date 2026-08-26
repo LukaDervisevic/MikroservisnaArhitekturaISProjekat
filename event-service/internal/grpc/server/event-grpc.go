@@ -13,6 +13,7 @@ import (
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/cqrs/query"
+	esservice "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/service"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
 	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
@@ -35,7 +36,10 @@ type GrpcServer struct {
 
 	getEventByIDHandler *query.GetEventByIDHandler
 
+	eventSourcingService *esservice.EventAggregateService
+
 	eventpb.UnimplementedEventServiceServer
+	eventpb.UnimplementedEventSourcingServiceServer
 	locationpb.UnimplementedLocationServiceServer
 }
 
@@ -45,6 +49,7 @@ func NewGrpcServer(
 	locationRepo *repo.LocationRepo,
 	queryBroker *rabbitmq.PublisherConn,
 	outboxRepo *outboxrepo.OutboxRepo,
+	eventSourcingService *esservice.EventAggregateService,
 ) *GrpcServer {
 	return &GrpcServer{
 		createLocationHandler:    command.NewCreateLocationHandler(db, locationRepo, outboxRepo),
@@ -59,6 +64,8 @@ func NewGrpcServer(
 		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker, outboxRepo),
 
 		getEventByIDHandler: query.NewGetEventByIDHandler(eventRepo),
+
+		eventSourcingService: eventSourcingService,
 	}
 }
 

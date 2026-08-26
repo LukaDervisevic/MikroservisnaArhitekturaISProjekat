@@ -11,6 +11,9 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/db"
+	esservice "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/service"
+	essnapshot "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/snapshot"
+	esstore "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/store"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
 	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
@@ -46,6 +49,11 @@ func main() {
 	locationRepo := repo.NewLocationRepo(conn)
 	outboxRepo := outboxrepo.NewOutboxRepo(conn)
 
+	eventSourcingService := esservice.NewEventAggregateService(
+		esstore.NewGormEventStore(conn),
+		essnapshot.NewGormSnapshotStore(conn),
+	)
+
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 	queryQueue := os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE")
 	eventToLectureQueue := os.Getenv("RABBITMQ_EVENT_TO_LECTURE_QUEUE")
@@ -63,10 +71,11 @@ func main() {
 	outboxProcessor := outboxsvc.NewOutboxProcessor(outboxRepo, queryBroker)
 	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
-	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo)
+	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo, eventSourcingService)
 
 	grpcServer := grpc.NewServer()
 	event.RegisterEventServiceServer(grpcServer, eventServer)
+	event.RegisterEventSourcingServiceServer(grpcServer, eventServer)
 	location.RegisterLocationServiceServer(grpcServer, eventServer)
 
 	go func() {
