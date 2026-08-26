@@ -43,10 +43,11 @@ func NewGrpcServer(
 	lectureRepo *repo.LectureRepo,
 	eventRepo *repo.EventRepo,
 	lecturerRepo *repo.LecturerRepo,
+	mailPublisher *rabbitmq.MailPublisher,
 ) *GrpcServer {
 
 	return &GrpcServer{
-		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn),
+		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn, mailPublisher),
 		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, publisherConn, sagaReplies),
 		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, publisherConn),
 		eventClient:          eventClient,

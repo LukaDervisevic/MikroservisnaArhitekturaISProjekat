@@ -5,4 +5,5 @@ type Lecturer struct {
 	FullName         string `gorm:"column:full_name"`
 	Title            string `gorm:"column:title"`
 	FieldOfExpertise string `gorm:"column:field_of_expertise"`
+	Email            string `gorm:"column:email"`
 }

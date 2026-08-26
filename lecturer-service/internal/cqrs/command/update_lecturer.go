@@ -20,6 +20,7 @@ type UpdateLecturerCommand struct {
 	FullName         string
 	Title            string
 	FieldOfExpertise string
+	Email            string
 }
 
 func (c UpdateLecturerCommand) Validate() error {
@@ -38,9 +39,6 @@ func (c UpdateLecturerCommand) Validate() error {
 	return nil
 }
 
-// sagaTimeout must exceed the downstream participants' own timeouts, so that a
-// stall is reported by the service that actually stalled rather than by every
-// service in the chain at once.
 const sagaTimeout = 20 * time.Second
 
 type UpdateLecturerHandler struct {
@@ -79,9 +77,8 @@ func (h *UpdateLecturerHandler) Handle(ctx context.Context, cmd UpdateLecturerCo
 	lecturer.FullName = cmd.FullName
 	lecturer.Title = cmd.Title
 	lecturer.FieldOfExpertise = cmd.FieldOfExpertise
+	lecturer.Email = cmd.Email
 
-	// The saga runs inside the transaction: the local write only lands if every
-	// downstream participant reports a commit, otherwise the tx rolls back.
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		sagaID := uuid.New()
 		ch := h.sagaReplies.Register(sagaID)

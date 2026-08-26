@@ -10,6 +10,7 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/mail"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -43,6 +44,7 @@ type CreateLectureHandler struct {
 	eventRepo     repo.IEventReadRepo
 	lecturerRepo  repo.ILecturerReadRepo
 	publisherConn *rabbitmq.PublisherConn
+	mailPublisher *rabbitmq.MailPublisher
 }
 
 func NewCreateLectureHandler(
@@ -50,13 +52,15 @@ func NewCreateLectureHandler(
 	lectureRepo repo.ILectureWriteRepo,
 	eventRepo repo.IEventReadRepo,
 	lecturerRepo repo.ILecturerReadRepo,
-	brokerConn *rabbitmq.PublisherConn) *CreateLectureHandler {
+	brokerConn *rabbitmq.PublisherConn,
+	mailPublisher *rabbitmq.MailPublisher) *CreateLectureHandler {
 	return &CreateLectureHandler{
 		db:            db,
 		lectureRepo:   lectureRepo,
 		eventRepo:     eventRepo,
 		lecturerRepo:  lecturerRepo,
-		publisherConn: brokerConn}
+		publisherConn: brokerConn,
+		mailPublisher: mailPublisher}
 }
 
 func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureCommand) (*model.Lecture, error) {
@@ -123,5 +127,28 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 		return nil, err
 	}
 
+	h.notifyLecturer(ctx, lecture)
+
 	return lecture, nil
+}
+
+func (h *CreateLectureHandler) notifyLecturer(ctx context.Context, lecture *model.Lecture) {
+	if h.mailPublisher == nil {
+		return
+	}
+	if lecture.Lecturer == nil || lecture.Lecturer.Email == "" {
+		log.Warn().
+			Int64("lecturer_id", lecture.LecturerID).
+			Int64("lecture_id", lecture.LectureID).
+			Msg("lecturer has no email address configured, skipping notification")
+		return
+	}
+
+	subject, body := mail.LectureCreated(lecture)
+	if err := h.mailPublisher.Enqueue(ctx, lecture.Lecturer.Email, subject, body); err != nil {
+		log.Error().Err(err).
+			Str("to", lecture.Lecturer.Email).
+			Int64("lecture_id", lecture.LectureID).
+			Msg("failed to enqueue lecture created notification")
+	}
 }

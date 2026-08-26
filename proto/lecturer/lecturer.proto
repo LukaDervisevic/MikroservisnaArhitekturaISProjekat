@@ -12,6 +12,8 @@ message Lecturer {
     string full_name = 2;
     string title = 3;
     string field_of_expertise = 4;
+    // Predefined address the lecturer is notified on when a lecture is created.
+    string email = 5;
 }
 
 
@@ -19,6 +21,7 @@ message CreateLecturerRequest {
     string full_name = 1;
     string title = 2;
     string field_of_expertise = 3;
+    string email = 4;
 }
 
 message CreateLecturerResponse {
@@ -80,6 +83,7 @@ message UpdateLecturerRequest {
     string full_name = 2;
     string title = 3;
     string field_of_expertise = 4;
+    string email = 5;
 }
 
 

@@ -18,7 +18,6 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
-	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 )
@@ -45,8 +44,6 @@ func main() {
 	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
 
 	mailQueue := os.Getenv("RABBITMQ_MAIL_QUEUE")
-	mailDLQQueue := os.Getenv("RABBITMQ_MAIL_DLQ_QUEUE")
-	outboxDir := os.Getenv("MAIL_OUTBOX_DIR")
 
 	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
@@ -56,6 +53,11 @@ func main() {
 		if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, queue); err != nil {
 			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
 		}
+	}
+
+	mailPublisher, err := rabbitmq.NewMailPublisher(ctx, publisherConn, mailQueue)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("failed to create mail publisher for queue %s", mailQueue)
 	}
 
 	sagaReplies := saga.NewSagaReplyRegistry()
@@ -115,7 +117,8 @@ func main() {
 		sagaReplies,
 		lectureRepo,
 		eventRepo,
-		lecturerRepo))
+		lecturerRepo,
+		mailPublisher))
 
 	go func() {
 		log.Printf("starting lecture service grpc server on port %v...", port)
@@ -123,30 +126,6 @@ func main() {
 			log.Fatal().Err(err).Msg("failed to serve grpc request")
 			cancel()
 		}
-	}()
-
-	go func() {
-		env := rmq.NewEnvironment(brokerURI, nil)
-		mailConn, err := env.NewConnection(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to connect to rabbitmq")
-			return
-		}
-
-		outbox, err := repo.NewOutboxRepo(outboxDir)
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to init outbox")
-			return
-		}
-
-		consumer, err := rabbitmq.NewMailConsumer(ctx, mailConn, outbox, mailQueue, mailDLQQueue)
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to create consumer")
-			return
-		}
-		defer consumer.Close(ctx)
-
-		consumer.Start(ctx)
 	}()
 
 	stop := make(chan os.Signal, 1)

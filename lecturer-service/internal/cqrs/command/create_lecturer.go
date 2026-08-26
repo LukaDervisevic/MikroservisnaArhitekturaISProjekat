@@ -21,6 +21,7 @@ type CreateLecturerCommand struct {
 	FullName         string
 	Title            string
 	FieldOfExpertise string
+	Email            string
 }
 
 type CreateLecturerHandler struct {
@@ -39,6 +40,7 @@ func (h *CreateLecturerHandler) Handle(ctx context.Context, cmd CreateLecturerCo
 		FullName:         cmd.FullName,
 		Title:            cmd.Title,
 		FieldOfExpertise: cmd.FieldOfExpertise,
+		Email:            cmd.Email,
 	}
 
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

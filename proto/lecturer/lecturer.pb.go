@@ -28,8 +28,10 @@ type Lecturer struct {
 	FullName         string                 `protobuf:"bytes,2,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	Title            string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	FieldOfExpertise string                 `protobuf:"bytes,4,opt,name=field_of_expertise,json=fieldOfExpertise,proto3" json:"field_of_expertise,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Predefined address the lecturer is notified on when a lecture is created.
+	Email         string `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Lecturer) Reset() {
@@ -90,11 +92,19 @@ func (x *Lecturer) GetFieldOfExpertise() string {
 	return ""
 }
 
+func (x *Lecturer) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
 type CreateLecturerRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	FullName         string                 `protobuf:"bytes,1,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	Title            string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	FieldOfExpertise string                 `protobuf:"bytes,3,opt,name=field_of_expertise,json=fieldOfExpertise,proto3" json:"field_of_expertise,omitempty"`
+	Email            string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -146,6 +156,13 @@ func (x *CreateLecturerRequest) GetTitle() string {
 func (x *CreateLecturerRequest) GetFieldOfExpertise() string {
 	if x != nil {
 		return x.FieldOfExpertise
+	}
+	return ""
+}
+
+func (x *CreateLecturerRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
 	}
 	return ""
 }
@@ -656,6 +673,7 @@ type UpdateLecturerRequest struct {
 	FullName         string                 `protobuf:"bytes,2,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
 	Title            string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	FieldOfExpertise string                 `protobuf:"bytes,4,opt,name=field_of_expertise,json=fieldOfExpertise,proto3" json:"field_of_expertise,omitempty"`
+	Email            string                 `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -714,6 +732,13 @@ func (x *UpdateLecturerRequest) GetTitle() string {
 func (x *UpdateLecturerRequest) GetFieldOfExpertise() string {
 	if x != nil {
 		return x.FieldOfExpertise
+	}
+	return ""
+}
+
+func (x *UpdateLecturerRequest) GetEmail() string {
+	if x != nil {
+		return x.Email
 	}
 	return ""
 }
@@ -878,16 +903,18 @@ var File_proto_lecturer_lecturer_proto protoreflect.FileDescriptor
 
 const file_proto_lecturer_lecturer_proto_rawDesc = "" +
 	"\n" +
-	"\x1dproto/lecturer/lecturer.proto\x12\blecturer\x1a\x1bgoogle/protobuf/empty.proto\"{\n" +
+	"\x1dproto/lecturer/lecturer.proto\x12\blecturer\x1a\x1bgoogle/protobuf/empty.proto\"\x91\x01\n" +
 	"\bLecturer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
 	"\tfull_name\x18\x02 \x01(\tR\bfullName\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12,\n" +
-	"\x12field_of_expertise\x18\x04 \x01(\tR\x10fieldOfExpertise\"x\n" +
+	"\x12field_of_expertise\x18\x04 \x01(\tR\x10fieldOfExpertise\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\"\x8e\x01\n" +
 	"\x15CreateLecturerRequest\x12\x1b\n" +
 	"\tfull_name\x18\x01 \x01(\tR\bfullName\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12,\n" +
-	"\x12field_of_expertise\x18\x03 \x01(\tR\x10fieldOfExpertise\"H\n" +
+	"\x12field_of_expertise\x18\x03 \x01(\tR\x10fieldOfExpertise\x12\x14\n" +
+	"\x05email\x18\x04 \x01(\tR\x05email\"H\n" +
 	"\x16CreateLecturerResponse\x12.\n" +
 	"\blecturer\x18\x01 \x01(\v2\x12.lecturer.LecturerR\blecturer\"(\n" +
 	"\x16GetLecturerByIDRequest\x12\x0e\n" +
@@ -920,12 +947,13 @@ const file_proto_lecturer_lecturer_proto_rawDesc = "" +
 	"totalCount\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\"\n" +
-	"\rhas_next_page\x18\x05 \x01(\bR\vhasNextPage\"\x88\x01\n" +
+	"\rhas_next_page\x18\x05 \x01(\bR\vhasNextPage\"\x9e\x01\n" +
 	"\x15UpdateLecturerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1b\n" +
 	"\tfull_name\x18\x02 \x01(\tR\bfullName\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12,\n" +
-	"\x12field_of_expertise\x18\x04 \x01(\tR\x10fieldOfExpertise\"'\n" +
+	"\x12field_of_expertise\x18\x04 \x01(\tR\x10fieldOfExpertise\x12\x14\n" +
+	"\x05email\x18\x05 \x01(\tR\x05email\"'\n" +
 	"\x15DeleteLecturerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\"H\n" +
 	"\x16DeleteLecturerResponse\x12.\n" +

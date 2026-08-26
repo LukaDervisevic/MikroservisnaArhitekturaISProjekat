@@ -56,24 +56,6 @@ func NewGrpcServer(
 	getByNameHandler := query.NewGetLecturerByNameHandler(lecturerRepo)
 	listHandler := query.NewListLecturersHandler(lecturerRepo)
 
-	//var lecturerBrokerConn *rabbitmq.PublisherConn
-	//var lecturerScheduler *scheduler.Scheduler
-	//var mailPublisher *rabbitmq.MailPublisher
-	//sendQueue := os.Getenv("RABBIT_LECTURE_QUEUE")
-	//
-	//lecturerBrokerConn = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-	//if lecturerBrokerConn == nil {
-	//	log.Fatal().Msg("unable to connect to create rabbitmq connection")
-	//} else {
-	//	lecturerBrokerConn.NewQueueRequester(ctx, lecturerBrokerConn.Connection, sendQueue)
-	//	lecturerScheduler = scheduler.NewScheduler(10, 100)
-	//
-	//	ailPublisher, err = rabbitmq.NewMailPublisher(ctx, lecturerBrokerConn.Connection, os.Getenv("RABBITMQ_LECTURE_MAIL_QUEUE"))
-	//	if err != nil || mailPublisher == nil {
-	//		return nil
-	//	}
-	//}
-
 	env := os.Getenv("ENVIRONMENT")
 	var lecturerUrl string
 	lecturerPort := os.Getenv("LECTURER_SERVICE_PORT")
@@ -109,6 +91,7 @@ func (g *GrpcServer) CreateLecturer(ctx context.Context, req *lecturerpb.CreateL
 		FullName:         req.FullName,
 		Title:            req.Title,
 		FieldOfExpertise: req.FieldOfExpertise,
+		Email:            req.Email,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
@@ -205,7 +188,7 @@ func (g *GrpcServer) UpdateLecturer(ctx context.Context, req *lecturerpb.UpdateL
 		return nil, status.Error(codes.InvalidArgument, "id is required for lecturer update")
 	}
 	err := g.updateLecturerHandler.Handle(ctx, command.UpdateLecturerCommand{
-		Id: req.Id, FullName: req.FullName, Title: req.Title, FieldOfExpertise: req.FieldOfExpertise,
+		Id: req.Id, FullName: req.FullName, Title: req.Title, FieldOfExpertise: req.FieldOfExpertise, Email: req.Email,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
@@ -224,32 +207,11 @@ func (g *GrpcServer) DeleteLecturer(ctx context.Context, req *lecturerpb.DeleteL
 	return &lecturerpb.DeleteLecturerResponse{Lecturer: lecturerModelToProto(lecturer)}, nil
 }
 
-//func (g *GrpcServer) SendEmail(ctx context.Context, req *lecturerpb.SendEmailRequest) (*emptypb.Empty, error) {
-//	if req == nil || req.To == "" || req.Subject == "" {
-//		return nil, status.Error(codes.InvalidArgument, "to and subject are required")
-//	}
-//
-//	email := model.EmailMessage{
-//		IdempotentKey: uuid.New(),
-//		To:            req.To,
-//		Subject:       req.Subject,
-//		Body:          req.Body,
-//		RetryCount:    0,
-//		ForceFail:     req.ForceFail, // demo flag
-//	}
-//
-//	if err := g.MailPublisher.PublishEmail(ctx, email); err != nil {
-//		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to enqueue email: %v", err))
-//	}
-//
-//	return &emptypb.Empty{}, nil
-//}
-
 func lecturerModelToProto(l *model.Lecturer) *lecturerpb.Lecturer {
 	if l == nil {
 		return nil
 	}
 	return &lecturerpb.Lecturer{
-		Id: l.Id, FullName: l.FullName, Title: l.Title, FieldOfExpertise: l.FieldOfExpertise,
+		Id: l.Id, FullName: l.FullName, Title: l.Title, FieldOfExpertise: l.FieldOfExpertise, Email: l.Email,
 	}
 }
