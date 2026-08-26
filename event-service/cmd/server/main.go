@@ -17,6 +17,9 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
 	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
+	sagarepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/saga"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/saga"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/saga/reply"
 	outboxsvc "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/service/outbox"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
@@ -57,12 +60,14 @@ func main() {
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 	queryQueue := os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE")
 	eventToLectureQueue := os.Getenv("RABBITMQ_EVENT_TO_LECTURE_QUEUE")
+	lectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_QUERY_QUEUE")
+	sagaReplyQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 
 	queryBroker, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	for _, queue := range []string{queryQueue, eventToLectureQueue} {
+	for _, queue := range []string{queryQueue, eventToLectureQueue, lectureQueryQueue} {
 		if err := queryBroker.NewQueuePublisher(ctx, queryBroker.Connection, queue); err != nil {
 			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
 		}
@@ -71,7 +76,23 @@ func main() {
 	outboxProcessor := outboxsvc.NewOutboxProcessor(outboxRepo, queryBroker)
 	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
-	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo, eventSourcingService)
+	sagaReplies := reply.NewRegistry()
+	orchestrator := saga.NewOrchestrator(sagarepo.NewSagaStore(conn))
+	updateEventSaga := saga.NewUpdateEventSaga(saga.UpdateEventSagaDeps{
+		EventRepo: eventRepo,
+		Publisher: queryBroker,
+		Replies:   sagaReplies,
+	})
+
+	sagaConsumer, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, sagaReplies)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create saga reply consumer connection")
+	}
+	if err := sagaConsumer.NewQueueConsumer(ctx, sagaReplyQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", sagaReplyQueue)
+	}
+
+	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo, eventSourcingService, orchestrator, updateEventSaga)
 
 	grpcServer := grpc.NewServer()
 	event.RegisterEventServiceServer(grpcServer, eventServer)
@@ -94,5 +115,7 @@ func main() {
 	grpcServer.GracefulStop()
 	_ = queryBroker.Connection.Close(ctx)
 	_ = queryBroker.Environment.CloseConnections(ctx)
+	_ = sagaConsumer.Connection.Close(ctx)
+	_ = sagaConsumer.Environment.CloseConnections(ctx)
 	log.Info().Msg("Event gRPC server stopped.")
 }

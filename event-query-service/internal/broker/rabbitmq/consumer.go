@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -24,8 +25,20 @@ var deadLetterRoutingKey string = "event-query-dlx"
 type Message struct {
 	IdempotentKey uuid.UUID       `json:"idempotentKey"`
 	Method        string          `json:"method"`
+	SagaID        uuid.UUID       `json:"sagaId"`
+	CorrelationID uuid.UUID       `json:"correlationId"`
+	Step          string          `json:"step"`
 	Body          json.RawMessage `json:"body"`
-	Retries       int
+	Timestamp     time.Time       `json:"timeStamp"`
+	Retries       int             `json:"retries"`
+}
+
+func (m Message) isSagaCommand() bool {
+	switch m.Method {
+	case MethodApplyEventProjection, MethodCompensateEventProjection:
+		return true
+	}
+	return false
 }
 
 type ProcessedMessage struct {
@@ -48,6 +61,7 @@ type ConsumerConn struct {
 	consumers      map[string]*rmq.Consumer
 	db             *gorm.DB
 	eventQueryRepo repo.IEventQueryRepo
+	publisherConn  *PublisherConn
 }
 
 func NewConsumerConn(
@@ -56,6 +70,7 @@ func NewConsumerConn(
 	connOptions *rmq.AmqpConnOptions,
 	db *gorm.DB,
 	eventQueryRepo repo.IEventQueryRepo,
+	publisherConn *PublisherConn,
 ) (*ConsumerConn, error) {
 	env := rmq.NewEnvironment(brokerURI, connOptions)
 	conn, err := env.NewConnection(ctx)
@@ -70,6 +85,7 @@ func NewConsumerConn(
 		consumers:      make(map[string]*rmq.Consumer),
 		db:             db,
 		eventQueryRepo: eventQueryRepo,
+		publisherConn:  publisherConn,
 	}, nil
 }
 
@@ -130,6 +146,11 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 
 	log.Info().Msgf("received message %s (%s)", msg.IdempotentKey, msg.Method)
 
+	if msg.isSagaCommand() {
+		b.handleSagaCommand(ctx, delivery, msg)
+		return
+	}
+
 	b.mutex.RLock()
 	_, cached := b.seen[msg.IdempotentKey]
 	b.mutex.RUnlock()
@@ -166,6 +187,111 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	b.remember(msg.IdempotentKey)
 	log.Info().Msgf("processed %s for message %s", msg.Method, msg.IdempotentKey)
 	_ = delivery.Accept(ctx)
+}
+
+func (b *ConsumerConn) handleSagaCommand(ctx context.Context, delivery rmq.IDeliveryContext, msg Message) {
+	logger := log.With().
+		Str("saga_id", msg.SagaID.String()).
+		Str("step", msg.Step).
+		Str("method", msg.Method).
+		Logger()
+	logger.Info().Msg("saga: participant received command")
+
+	var compensation, output json.RawMessage
+
+	err := b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		claim := ProcessedMessage{
+			IdempotentKey: msg.IdempotentKey,
+			Method:        msg.Method,
+			ProcessedAt:   time.Now().UTC(),
+		}
+		if err := tx.Create(&claim).Error; err != nil {
+			return fmt.Errorf("claim idempotency key: %w", err)
+		}
+
+		var dispatchErr error
+		compensation, output, dispatchErr = b.dispatchSaga(ctx, tx, msg)
+		return dispatchErr
+	})
+
+	if isDuplicateKey(err) {
+		logger.Info().Msg("saga: duplicate command delivery, original reply stands")
+		b.remember(msg.IdempotentKey)
+		_ = delivery.Accept(ctx)
+		return
+	}
+
+	rep := CommitReply(compensation, output)
+	if err != nil {
+		rep = FailReply(err)
+		logger.Error().Err(err).Msg("saga: step failed, reporting to orchestrator")
+	} else {
+		b.remember(msg.IdempotentKey)
+		logger.Info().Msg("saga: step committed, reporting to orchestrator")
+	}
+
+	replyQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
+	if pubErr := b.publisherConn.PublishSagaReply(ctx, replyQueue, msg.SagaID, msg.CorrelationID, msg.Step, rep); pubErr != nil {
+		logger.Error().Err(pubErr).Str("queue", replyQueue).Msg("saga: failed to publish reply")
+	}
+
+	_ = delivery.Accept(ctx)
+}
+
+func (b *ConsumerConn) dispatchSaga(ctx context.Context, tx *gorm.DB, msg Message) (json.RawMessage, json.RawMessage, error) {
+	events := b.eventQueryRepo.WithTx(tx)
+
+	switch msg.Method {
+	case MethodApplyEventProjection:
+		event, err := decode[model.EventWithLocation](msg.Body)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		before, err := events.GetEventByID(ctx, event.EventId)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read projection %d before-image: %w", event.EventId, err)
+		}
+
+		compensation, err := json.Marshal(EventProjectionCompensation{
+			EventID: event.EventId,
+			Existed: before != nil,
+			Row:     before,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("capture projection before-image: %w", err)
+		}
+
+		if before == nil {
+			if err := events.CreateEvent(ctx, event); err != nil {
+				return nil, nil, fmt.Errorf("create projection %d: %w", event.EventId, err)
+			}
+			return compensation, nil, nil
+		}
+		if err := events.UpdateEvent(ctx, event); err != nil {
+			return nil, nil, fmt.Errorf("update projection %d: %w", event.EventId, err)
+		}
+		return compensation, nil, nil
+
+	case MethodCompensateEventProjection:
+		var c EventProjectionCompensation
+		if err := json.Unmarshal(msg.Body, &c); err != nil {
+			return nil, nil, fmt.Errorf("decode projection before-image: %w", err)
+		}
+		if !c.Existed || c.Row == nil {
+			if err := events.DeleteEvent(ctx, c.EventID); err != nil {
+				return nil, nil, fmt.Errorf("remove projection %d: %w", c.EventID, err)
+			}
+			return nil, nil, nil
+		}
+		if err := events.UpdateEvent(ctx, c.Row); err != nil {
+			return nil, nil, fmt.Errorf("restore projection %d: %w", c.EventID, err)
+		}
+		return nil, nil, nil
+
+	default:
+		return nil, nil, fmt.Errorf("unknown saga method: %s", msg.Method)
+	}
 }
 
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {

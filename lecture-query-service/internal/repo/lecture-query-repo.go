@@ -17,6 +17,8 @@ type ILectureQueryRepo interface {
 	GetLectureByName(ctx context.Context, name string) (*model.LectureQuery, error)
 	ListLecturesByEventID(ctx context.Context, filter ListLecturesByEventIDFilter) ([]model.LectureQuery, int64, error)
 	ListLecturesByLecturerID(ctx context.Context, filter ListLecturesByLecturerIDFilter) ([]model.LectureQuery, int64, error)
+	ListAllByEventID(ctx context.Context, eventID int64) ([]model.LectureQuery, error)
+	DeleteAllByEventID(ctx context.Context, eventID int64) error
 	WithTx(tx *gorm.DB) *LectureQueryRepo
 }
 
@@ -112,6 +114,20 @@ func (r *LectureQueryRepo) ListLecturesByLecturerID(ctx context.Context, filter 
 	}
 
 	return lectures, totalCount, nil
+}
+
+func (r *LectureQueryRepo) ListAllByEventID(ctx context.Context, eventID int64) ([]model.LectureQuery, error) {
+	var lectures []model.LectureQuery
+	err := r.db.WithContext(ctx).
+		Where("event_id = ?", eventID).
+		Find(&lectures).Error
+	return lectures, err
+}
+
+func (r *LectureQueryRepo) DeleteAllByEventID(ctx context.Context, eventID int64) error {
+	return r.db.WithContext(ctx).
+		Where("event_id = ?", eventID).
+		Delete(&model.LectureQuery{}).Error
 }
 
 func (r *LectureQueryRepo) UpdateLecture(ctx context.Context, lecture *model.LectureQuery) error {

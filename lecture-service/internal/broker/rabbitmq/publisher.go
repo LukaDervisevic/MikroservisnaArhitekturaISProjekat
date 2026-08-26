@@ -85,3 +85,31 @@ func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaI
 
 	return b.Publish(ctx, payload, queueName, true)
 }
+
+func (b *PublisherConn) PublishSagaReply(
+	ctx context.Context,
+	queueName string,
+	sagaID, correlationID uuid.UUID,
+	step string,
+	rep SagaReply,
+) error {
+	bodyBytes, err := json.Marshal(rep)
+	if err != nil {
+		return fmt.Errorf("marshal saga reply body: %w", err)
+	}
+
+	payload, err := json.Marshal(Message{
+		IdempotentKey: uuid.New(),
+		SagaID:        sagaID,
+		CorrelationID: correlationID,
+		Step:          step,
+		Method:        "SagaReply",
+		TimeStamp:     time.Now().UTC(),
+		Body:          bodyBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal saga reply envelope: %w", err)
+	}
+
+	return b.Publish(ctx, payload, queueName, true)
+}

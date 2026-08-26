@@ -63,26 +63,6 @@ func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName stri
 	return err
 }
 
-func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaID uuid.UUID, method string, body any) error {
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("marshal saga body for %s: %w", method, err)
-	}
-
-	payload, err := json.Marshal(Message{
-		IdempotentKey: uuid.New(),
-		SagaID:        sagaID,
-		Method:        method,
-		Timestamp:     time.Now().UTC(),
-		Body:          bodyBytes,
-	})
-	if err != nil {
-		return fmt.Errorf("marshal saga envelope for %s: %w", method, err)
-	}
-
-	return b.Publish(ctx, payload, queueName, true)
-}
-
 func (b *PublisherConn) PublishSagaReply(
 	ctx context.Context,
 	queueName string,

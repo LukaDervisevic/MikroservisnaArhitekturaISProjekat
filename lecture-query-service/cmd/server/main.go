@@ -54,13 +54,16 @@ func main() {
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 	lectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
 	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
+	sagaReplyEventQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 
 	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, replyToLectureQueue); err != nil {
-		log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", replyToLectureQueue)
+	for _, queue := range []string{replyToLectureQueue, sagaReplyEventQueue} {
+		if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
+		}
 	}
 
 	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo, publisherConn)

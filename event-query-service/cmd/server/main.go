@@ -51,8 +51,19 @@ func main() {
 		}
 	}()
 
+	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 	eventQueryQueue := os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE")
-	consumerConn, err := rabbitmq.NewConsumerConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil, conn, eventQueryRepo)
+	sagaReplyQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
+
+	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create publisher connection")
+	}
+	if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, sagaReplyQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", sagaReplyQueue)
+	}
+
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventQueryRepo, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to establish consumer connection to rabbitmq broker")
 	}
@@ -68,5 +79,7 @@ func main() {
 	grpcServer.GracefulStop()
 	_ = consumerConn.Connection.Close(ctx)
 	_ = consumerConn.Environment.CloseConnections(ctx)
+	_ = publisherConn.Connection.Close(ctx)
+	_ = publisherConn.Environment.CloseConnections(ctx)
 	log.Info().Msg("Event query gRPC server stopped.")
 }

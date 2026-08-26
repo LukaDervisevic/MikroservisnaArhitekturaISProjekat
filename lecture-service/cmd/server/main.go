@@ -42,6 +42,7 @@ func main() {
 	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
 	toLectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
 	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
+	sagaReplyEventQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 
 	mailQueue := os.Getenv("RABBITMQ_MAIL_QUEUE")
 
@@ -49,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
 	}
-	for _, queue := range []string{toLectureQueryQueue, replyToLecturerQueue} {
+	for _, queue := range []string{toLectureQueryQueue, replyToLecturerQueue, sagaReplyEventQueue} {
 		if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, queue); err != nil {
 			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
 		}

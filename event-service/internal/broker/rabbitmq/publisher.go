@@ -14,11 +14,14 @@ import (
 )
 
 type Message struct {
-	IdempotentKey uuid.UUID
-	Method        string
-	Body          json.RawMessage
-	TimeStamp     time.Time
-	Retries       int
+	IdempotentKey uuid.UUID       `json:"idempotentKey"`
+	Method        string          `json:"method"`
+	SagaID        uuid.UUID       `json:"sagaId"`
+	CorrelationID uuid.UUID       `json:"correlationId"`
+	Step          string          `json:"step"`
+	Body          json.RawMessage `json:"body"`
+	TimeStamp     time.Time       `json:"timeStamp"`
+	Retries       int             `json:"retries"`
 }
 
 type PublisherConn struct {
@@ -76,4 +79,32 @@ func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName stri
 		log.Error().Err(err).Msg("failed to publish message to queue")
 	}
 	return err
+}
+
+func (b *PublisherConn) PublishSagaCommand(
+	ctx context.Context,
+	queueName string,
+	sagaID, correlationID uuid.UUID,
+	step, method string,
+	body any,
+) error {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal saga body for %s: %w", method, err)
+	}
+
+	payload, err := json.Marshal(Message{
+		IdempotentKey: uuid.New(),
+		SagaID:        sagaID,
+		CorrelationID: correlationID,
+		Step:          step,
+		Method:        method,
+		TimeStamp:     time.Now().UTC(),
+		Body:          bodyBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal saga envelope for %s: %w", method, err)
+	}
+
+	return b.Publish(ctx, payload, queueName, true)
 }

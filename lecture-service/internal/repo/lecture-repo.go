@@ -54,6 +54,17 @@ func (r *LectureRepo) WithTx(tx *gorm.DB) *LectureRepo {
 	return &LectureRepo{db: tx}
 }
 
+func (r *LectureRepo) ListAllLecturesByEventID(ctx context.Context, eventID int64) ([]model.Lecture, error) {
+	var lectures []model.Lecture
+	err := r.db.WithContext(ctx).
+		Preload("Event").
+		Preload("Event.Location").
+		Preload("Lecturer").
+		Where("event_id = ?", eventID).
+		Find(&lectures).Error
+	return lectures, err
+}
+
 func (r *LectureRepo) ListAllLecturesByLecturerID(ctx context.Context, lecturerID int64) ([]model.Lecture, error) {
 	var lectures []model.Lecture
 	err := r.db.WithContext(ctx).
