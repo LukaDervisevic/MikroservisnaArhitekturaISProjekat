@@ -84,7 +84,9 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 		DeliveryLimit:        deadLetterThreshold,
 		DeadLetterExchange:   deadLetterExchange,
 		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
-		return fmt.Errorf("declare queue %s: %w", queueName, err)
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return fmt.Errorf("declare queue %s: %w", queueName, err)
+		}
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)

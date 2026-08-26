@@ -59,9 +59,10 @@ func Connect() *gorm.DB {
 
 	db, err := gorm.Open(postgres.Open(dbUrl.String()), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
-			TablePrefix:   "lecture_service.",
+			TablePrefix:   "lecture_query_service.",
 			SingularTable: false,
 		},
+		TranslateError: true,
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to database")

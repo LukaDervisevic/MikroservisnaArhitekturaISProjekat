@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
@@ -27,10 +28,14 @@ func NewMailConsumer(
 ) (*MailConsumer, error) {
 	mgmt := conn.Management()
 	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: cfg.Queue}); err != nil {
-		return nil, err
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return nil, err
+		}
 	}
 	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: cfg.DLQQueue}); err != nil {
-		return nil, err
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return nil, err
+		}
 	}
 
 	consumer, err := conn.NewConsumer(ctx, cfg.Queue, nil)

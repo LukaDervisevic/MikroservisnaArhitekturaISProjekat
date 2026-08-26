@@ -3,6 +3,7 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -39,7 +40,9 @@ func (b *PublisherConn) NewQueuePublisher(ctx context.Context, conn *rmq.AmqpCon
 
 	mgmt := conn.Management()
 	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
-		return fmt.Errorf("declare queue %s: %w", queueName, err)
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return fmt.Errorf("declare queue %s: %w", queueName, err)
+		}
 	}
 
 	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: queueName}, nil)

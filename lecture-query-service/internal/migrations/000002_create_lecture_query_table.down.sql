@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS lecture_query_service.lecture_query;
+DROP TABLE IF EXISTS lecture_query_service.lecture_queries;

@@ -1,7 +1,7 @@
 package model
 
 type Lecture struct {
-	LectureID  int64
+	LectureID  int64 `gorm:"column:lecture_id;primaryKey"`
 	EventID    int64
 	Event      *Event `gorm:"foreignKey:EventID;references:Id"`
 	LecturerID int64

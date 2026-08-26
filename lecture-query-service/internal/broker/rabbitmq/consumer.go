@@ -76,7 +76,9 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 
 	mgmt := b.Connection.Management()
 	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
-		return fmt.Errorf("declare queue %s: %w", queueName, err)
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return fmt.Errorf("declare queue %s: %w", queueName, err)
+		}
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
