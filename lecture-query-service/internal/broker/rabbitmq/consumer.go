@@ -300,7 +300,7 @@ func replaceProjections(ctx context.Context, lectures *repo.LectureQueryRepo, ev
 		return fmt.Errorf("clear projections for event %d: %w", eventID, err)
 	}
 	for i := range rows {
-		if err := lectures.CreateLecture(ctx, &rows[i]); err != nil {
+		if err := lectures.UpsertLecture(ctx, &rows[i]); err != nil {
 			return fmt.Errorf("write projection for lecture %d: %w", rows[i].LectureID, err)
 		}
 	}

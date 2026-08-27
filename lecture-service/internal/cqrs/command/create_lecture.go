@@ -92,7 +92,7 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 	}
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.lectureRepo.CreateLecture(ctx, lecture); err != nil {
+		if err := h.lectureRepo.WithTx(tx).CreateLecture(ctx, lecture); err != nil {
 			return status.Error(codes.Internal, "failed to create lecture")
 		}
 
@@ -106,7 +106,6 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			Body:          lectureQueryBytes,
 			Method:        "CreateLectureQuery",
 			TimeStamp:     time.Now(),
-			Retries:       0,
 		}
 		var payload []byte
 		payload, err = json.Marshal(msg)

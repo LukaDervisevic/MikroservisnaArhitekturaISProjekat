@@ -32,7 +32,6 @@ type Message struct {
 	Step          string          `json:"step"`
 	Body          json.RawMessage `json:"body"`
 	TimeStamp     time.Time
-	Retries       int
 }
 
 func (m Message) isSagaCommand() bool {

@@ -59,7 +59,7 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 	}
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.lectureRepo.DeleteLecture(ctx, cmd.LectureID); err != nil {
+		if err := h.lectureRepo.WithTx(tx).DeleteLecture(ctx, cmd.LectureID); err != nil {
 			return status.Error(codes.Internal, "failed to delete lecture")
 		}
 
@@ -73,7 +73,6 @@ func (h *DeleteLectureHandler) Handle(ctx context.Context, cmd DeleteLectureComm
 			Body:          lectureQueryBytes,
 			Method:        "DeleteLectureQuery",
 			TimeStamp:     time.Now(),
-			Retries:       0,
 		}
 
 		payload, err := json.Marshal(msg)

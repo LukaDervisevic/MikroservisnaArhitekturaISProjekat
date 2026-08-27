@@ -173,8 +173,6 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) error {
 
 	switch msg.Method {
-	// Tail of the saga chain: lecture-service reports whether the downstream
-	// participants committed, which unblocks UpdateLecturerHandler.
 	case "UpdateLecturerSAGAReply":
 		sagaReply, err := decode[model.SagaReply](msg.Body)
 		if err != nil {

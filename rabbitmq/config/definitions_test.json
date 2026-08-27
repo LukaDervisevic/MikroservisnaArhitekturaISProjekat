@@ -24,6 +24,8 @@
     { "name": "reply-to-lecturer", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
     { "name": "reply-to-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
 
+    { "name": "saga-reply-event", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
+
     { "name": "lecturer-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
     { "name": "lecture-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
     { "name": "event-dlx", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},

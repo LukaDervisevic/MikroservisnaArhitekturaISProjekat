@@ -17,8 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// sagaTimeout bounds how long this service, as a saga initiator, waits for the
-// chain to report back.
 const sagaTimeout = 20 * time.Second
 
 type UpdateLectureCommand struct {
@@ -95,8 +93,6 @@ func (h *UpdateLectureHandler) Handle(
 		return nil, status.Error(codes.Internal, "lecture is missing event or lecturer data")
 	}
 
-	// Same shape as the lecturer saga: hold the local write until the read model
-	// confirms it applied the change.
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		sagaID := uuid.New()
 		ch := h.sagaReplies.Register(sagaID)
@@ -124,7 +120,7 @@ func (h *UpdateLectureHandler) Handle(
 			return status.Error(codes.DeadlineExceeded, "saga reply timeout")
 		}
 
-		if err := h.lectureRepo.UpdateLecture(ctx, lecture); err != nil {
+		if err := h.lectureRepo.WithTx(tx).UpdateLecture(ctx, lecture); err != nil {
 			return status.Error(codes.Internal, "failed to update lecture")
 		}
 
