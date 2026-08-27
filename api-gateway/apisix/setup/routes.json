@@ -96,6 +96,22 @@
     "upstream": "event-query-service:50053"
   },
   {
+    "id": "event-list",
+    "uri": "/api/events/list",
+    "service": "event.EventService",
+    "method": "ListEvents",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "event-list-by-type",
+    "uri": "/api/events/list-by-type",
+    "service": "event.EventService",
+    "method": "ListEventsByType",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
     "id": "location-create",
     "uri": "/api/locations",
     "service": "location.LocationService",
@@ -206,5 +222,77 @@
     "method": "ListLecturesByLecturerID",
     "proto": "lecture-proto",
     "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "sourced-event-create",
+    "uri": "/api/sourced-events",
+    "service": "event.EventSourcingService",
+    "method": "CreateSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-rename",
+    "uri": "/api/sourced-events/rename",
+    "service": "event.EventSourcingService",
+    "method": "RenameSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-reschedule",
+    "uri": "/api/sourced-events/reschedule",
+    "service": "event.EventSourcingService",
+    "method": "RescheduleSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-relocate",
+    "uri": "/api/sourced-events/relocate",
+    "service": "event.EventSourcingService",
+    "method": "RelocateSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-change-price",
+    "uri": "/api/sourced-events/change-price",
+    "service": "event.EventSourcingService",
+    "method": "ChangeSourcedEventPrice",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-cancel",
+    "uri": "/api/sourced-events/cancel",
+    "service": "event.EventSourcingService",
+    "method": "CancelSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-get-state",
+    "uri": "/api/sourced-events/get-state",
+    "service": "event.EventSourcingService",
+    "method": "GetSourcedEventState",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-get-history",
+    "uri": "/api/sourced-events/get-history",
+    "service": "event.EventSourcingService",
+    "method": "GetSourcedEventHistory",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-create-snapshot",
+    "uri": "/api/sourced-events/create-snapshot",
+    "service": "event.EventSourcingService",
+    "method": "CreateSourcedEventSnapshot",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
   }
 ]

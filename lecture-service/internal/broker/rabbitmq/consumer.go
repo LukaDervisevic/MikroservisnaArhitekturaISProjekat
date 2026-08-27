@@ -177,7 +177,6 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	}
 
 	err := b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Claim the key first. Unique PK violation == concurrent/duplicate delivery.
 		claim := ProcessedMessage{
 			IdempotentKey: msg.IdempotentKey,
 			Method:        msg.Method,
@@ -191,17 +190,15 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 
 	if isDuplicateKey(err) {
 		b.remember(msg.IdempotentKey)
-		_ = delivery.Accept(ctx) // committed by someone else; still a success
+		_ = delivery.Accept(ctx)
 		return
 	}
 
-	// Reply upstream only once the local tx has resolved, so we never report a
-	// commit for a transaction that then failed to commit.
 	b.replyUpstream(ctx, msg, err)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		_ = delivery.Requeue(ctx) // rolled back, safe to redeliver
+		_ = delivery.Requeue(ctx)
 		return
 	}
 
@@ -210,8 +207,6 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	_ = delivery.Accept(ctx)
 }
 
-// replyUpstream tells the previous service in the saga chain whether this
-// service committed its own change.
 func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr error) {
 	var replyQueue, replyMethod string
 	switch msg.Method {
@@ -274,7 +269,6 @@ func (b *ConsumerConn) handleSagaCommand(ctx context.Context, delivery rmq.IDeli
 
 	replyQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 	if pubErr := b.publisherConn.PublishSagaReply(ctx, replyQueue, msg.SagaID, msg.CorrelationID, msg.Step, rep); pubErr != nil {
-		// The orchestrator will time this step out and compensate.
 		logger.Error().Err(pubErr).Str("queue", replyQueue).Msg("saga: failed to publish reply")
 	}
 

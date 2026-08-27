@@ -28,9 +28,6 @@ func (s *SMTPSender) Describe() string {
 }
 
 func (s *SMTPSender) Send(ctx context.Context, email model.EmailMessage) error {
-	if email.ForceFail {
-		return fmt.Errorf("forced failure for email %s (demo)", email.IdempotentKey)
-	}
 	if _, err := mail.ParseAddress(email.To); err != nil {
 		return fmt.Errorf("invalid recipient %q: %w", email.To, err)
 	}

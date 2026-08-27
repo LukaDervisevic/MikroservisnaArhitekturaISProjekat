@@ -1,4 +1,3 @@
-// Package ratelimit contains the pacing primitives used by the mail worker.
 package ratelimit
 
 import (
@@ -15,23 +14,17 @@ type SlidingWindow struct {
 	limit  int
 	period time.Duration
 
-	mutex sync.Mutex
-	// events holds the timestamps still inside the current window, oldest first.
+	mutex  sync.Mutex
 	events []time.Time
 
-	// now and sleep are swapped out in tests to drive a virtual clock.
 	now   func() time.Time
 	sleep func(ctx context.Context, d time.Duration) error
 }
 
-// NewSlidingWindow builds a limiter of limit events per period. A limit of zero
-// or less disables throttling.
 func NewSlidingWindow(limit int, period time.Duration) *SlidingWindow {
 	return NewSlidingWindowWithClock(limit, period, time.Now, sleepCtx)
 }
 
-// NewSlidingWindowWithClock builds a limiter driven by an injected clock, so a
-// test can exercise a one-minute budget without waiting a minute.
 func NewSlidingWindowWithClock(
 	limit int,
 	period time.Duration,

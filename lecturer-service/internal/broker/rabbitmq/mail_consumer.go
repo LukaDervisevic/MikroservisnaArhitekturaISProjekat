@@ -109,7 +109,6 @@ func (c *MailConsumer) handle(ctx context.Context, delivery rmq.IDeliveryContext
 		return
 	}
 	if ctx.Err() != nil {
-		// Shutting down mid-wait: leave the message on the queue.
 		_ = delivery.Requeue(ctx)
 		return
 	}

@@ -121,13 +121,13 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			return status.Error(codes.Internal, "failed to publish message")
 		}
 
+		h.notifyLecturer(ctx, lecture)
+
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	h.notifyLecturer(ctx, lecture)
 
 	return lecture, nil
 }
