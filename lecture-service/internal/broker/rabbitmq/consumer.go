@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var deadLetterThreshold int64 = 10
 var deadLetterExchange string = "dlx"
 var deadLetterRoutingKey string = "lecture-dlx"
 
@@ -109,15 +108,8 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 		return errors.New("no broker connection")
 	}
 
-	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
-		Name:                 queueName,
-		DeliveryLimit:        deadLetterThreshold,
-		DeadLetterExchange:   deadLetterExchange,
-		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
-		if !errors.Is(err, rmq.ErrPreconditionFailed) {
-			return fmt.Errorf("declare queue %s: %w", queueName, err)
-		}
+	if err := declareClassicWithDLQ(ctx, b.Connection.Management(), queueName); err != nil {
+		return err
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
@@ -196,8 +188,7 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	b.replyUpstream(ctx, msg, err)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		_ = delivery.Requeue(ctx)
+		b.retryOrDeadLetter(ctx, delivery, msg.IdempotentKey.String(), msg.Method, err)
 		return
 	}
 
@@ -429,9 +420,6 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 		}
 		return lecturers.DeleteLecturer(ctx, lecturer.Id)
 
-	// Middle of the saga chain: apply the change locally, then hand the saga to
-	// lecture-query-service. Returning an error here rolls this tx back, and
-	// handle() turns that into a rollback reply for lecturer-service.
 	case "UpdateLecturerSAGA":
 		lecturer, err := decode[model.Lecturer](msg.Body)
 		if err != nil {
@@ -441,8 +429,6 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 			return fmt.Errorf("update lecturer replica: %w", err)
 		}
 
-		// Rebuild the read-model rows this lecturer appears on. Reading through
-		// tx is what makes the projections carry the update applied just above.
 		lectures, err := b.lectureRepo.WithTx(tx).ListAllLecturesByLecturerID(ctx, lecturer.Id)
 		if err != nil {
 			return fmt.Errorf("list lectures for lecturer %d: %w", lecturer.Id, err)
@@ -474,9 +460,6 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 	}
 }
 
-// awaitDownstream forwards the saga to the next service and blocks until that
-// service reports back on its own reply queue, consumed asynchronously by this
-// service's own responder goroutine, so this wait cannot deadlock the reply path.
 func (b *ConsumerConn) awaitDownstream(ctx context.Context, sagaID uuid.UUID, queue, method string, body any) error {
 	ch := b.sagaReplies.Register(sagaID)
 	defer b.sagaReplies.Unregister(sagaID)
@@ -514,7 +497,6 @@ func isDuplicateKey(err error) bool {
 		return false
 	}
 
-	// Works when gorm.Config{TranslateError: true} is set.
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return true
 	}

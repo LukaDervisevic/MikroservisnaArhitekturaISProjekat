@@ -52,7 +52,7 @@ func (b *PublisherConn) NewQueuePublisher(ctx context.Context, conn *rmq.AmqpCon
 	}
 
 	mgmt := conn.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: queueName}); err != nil {
 		if !errors.Is(err, rmq.ErrPreconditionFailed) {
 			return fmt.Errorf("declare queue %s: %w", queueName, err)
 		}

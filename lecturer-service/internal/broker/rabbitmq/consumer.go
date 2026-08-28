@@ -17,7 +17,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var deadLetterThreshold int64 = 10
 var deadLetterExchange = "dlx"
 var deadLetterRoutingKey = "lecturer-dlx"
 
@@ -80,15 +79,8 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 		return errors.New("no broker connection")
 	}
 
-	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
-		Name:                 queueName,
-		DeliveryLimit:        deadLetterThreshold,
-		DeadLetterExchange:   deadLetterExchange,
-		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
-		if !errors.Is(err, rmq.ErrPreconditionFailed) {
-			return fmt.Errorf("declare queue %s: %w", queueName, err)
-		}
+	if err := declareClassicWithDLQ(ctx, b.Connection.Management(), queueName); err != nil {
+		return err
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
@@ -160,8 +152,7 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 			_ = delivery.Accept(ctx) // committed by someone else; still a success
 			return
 		}
-		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		_ = delivery.Requeue(ctx) // rolled back, safe to redeliver
+		b.retryOrDeadLetter(ctx, delivery, msg.IdempotentKey.String(), msg.Method, err)
 		return
 	}
 

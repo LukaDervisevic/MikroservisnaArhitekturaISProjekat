@@ -1,0 +1,1306 @@
+{
+  "info": {
+    "name": "API Gateway (APISIX)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Lecturers",
+      "item": [
+        {
+          "name": "Create lecturer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Ada Lovelace\",\n  \"title\": \"Dr\",\n  \"field_of_expertise\": \"Computer Science\",\n  \"email\": \"ada@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers"
+              ]
+            },
+            "description": "lecturer.LecturerService/CreateLecturer -> lecturer-service:50051"
+          },
+          "response": []
+        },
+        {
+          "name": "Get lecturer by ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/get-by-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "get-by-id"
+              ]
+            },
+            "description": "GetLecturerByID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get lecturer by name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Ada Lovelace\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/get-by-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "get-by-name"
+              ]
+            },
+            "description": "GetLecturerByName"
+          },
+          "response": []
+        },
+        {
+          "name": "List lecturers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"page_size\": 10,\n  \"field_of_expertise\": \"\",\n  \"title\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "list"
+              ]
+            },
+            "description": "ListLecturers (page/page_size + optional filters)"
+          },
+          "response": []
+        },
+        {
+          "name": "List lecturers by field of expertise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field_of_expertise\": \"Computer Science\",\n  \"page\": 1,\n  \"page_size\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/list-by-field",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "list-by-field"
+              ]
+            },
+            "description": "ListLecturersByFieldOfExpertise"
+          },
+          "response": []
+        },
+        {
+          "name": "Update lecturer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"full_name\": \"Ada Lovelace\",\n  \"title\": \"Prof\",\n  \"field_of_expertise\": \"Computer Science\",\n  \"email\": \"ada@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "update"
+              ]
+            },
+            "description": "UpdateLecturer -> google.protobuf.Empty ({} on success)"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete lecturer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lecturers/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lecturers",
+                "delete"
+              ]
+            },
+            "description": "DeleteLecturer"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events (command)",
+      "item": [
+        {
+          "name": "Create event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MAIS Conference\",\n  \"cotisation_price\": 49.99,\n  \"agenda\": \"Full day of talks\",\n  \"type\": \"CONFERENCE\",\n  \"date_time\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  },\n  \"location_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "description": "event.EventService/CreateEvent -> event-service:50052. date_time MUST be {seconds,nanos}, not a string."
+          },
+          "response": []
+        },
+        {
+          "name": "Update event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"MAIS Conference 2026\",\n  \"cotisation_price\": 59.99,\n  \"agenda\": \"Updated agenda\",\n  \"type\": \"CONFERENCE\",\n  \"date_time\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  },\n  \"location_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "update"
+              ]
+            },
+            "description": "UpdateEvent -> Empty"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "delete"
+              ]
+            },
+            "description": "DeleteEvent"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events (query)",
+      "item": [
+        {
+          "name": "Get event by ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/get-by-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "get-by-id"
+              ]
+            },
+            "description": "GetEventByID -> event-query-service:50053"
+          },
+          "response": []
+        },
+        {
+          "name": "Get event by name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MAIS Conference\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/get-by-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "get-by-name"
+              ]
+            },
+            "description": "GetEventByName -> event-query-service:50053"
+          },
+          "response": []
+        },
+        {
+          "name": "List events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"page_size\": 10,\n  \"type\": \"\",\n  \"from_date\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  },\n  \"to_date\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  },\n  \"location_id\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "list"
+              ]
+            },
+            "description": "ListEvents. NOTE: README flags this as not implemented server-side yet (route exists, may return UNIMPLEMENTED). from_date/to_date optional - remove them to omit."
+          },
+          "response": []
+        },
+        {
+          "name": "List events by type",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CONFERENCE\",\n  \"page\": 1,\n  \"page_size\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/list-by-type",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "events",
+                "list-by-type"
+              ]
+            },
+            "description": "ListEventsByType. NOTE: README flags this as not implemented server-side yet."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Locations",
+      "item": [
+        {
+          "name": "Create location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aula Magna\",\n  \"address\": \"Main St 1\",\n  \"capacity\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations"
+              ]
+            },
+            "description": "location.LocationService/CreateLocation -> event-service:50052"
+          },
+          "response": []
+        },
+        {
+          "name": "Update location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"Aula Magna\",\n  \"address\": \"Main St 1\",\n  \"capacity\": 350\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "update"
+              ]
+            },
+            "description": "UpdateLocation -> Empty"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "delete"
+              ]
+            },
+            "description": "DeleteLocation"
+          },
+          "response": []
+        },
+        {
+          "name": "Get location by ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/get-by-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "get-by-id"
+              ]
+            },
+            "description": "GetLocationByID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get location by name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Aula Magna\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/get-by-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "get-by-name"
+              ]
+            },
+            "description": "GetLocationByName"
+          },
+          "response": []
+        },
+        {
+          "name": "List locations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"page_size\": 10,\n  \"min_capacity\": 0,\n  \"max_capacity\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "list"
+              ]
+            },
+            "description": "ListLocations (min/max_capacity optional filters)"
+          },
+          "response": []
+        },
+        {
+          "name": "List locations by min capacity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"min_capacity\": 100,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/locations/list-by-min-capacity",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "locations",
+                "list-by-min-capacity"
+              ]
+            },
+            "description": "ListLocationsByMinCapacity"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Lectures (command)",
+      "item": [
+        {
+          "name": "Create lecture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lecturer_id\": 1,\n  \"event_id\": 1,\n  \"name\": \"Intro to Microservices\",\n  \"duration\": {\n    \"seconds\": 3600,\n    \"nanos\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures"
+              ]
+            },
+            "description": "lecture.LectureService/CreateLecture -> lecture-service:50054. duration MUST be {seconds,nanos}."
+          },
+          "response": []
+        },
+        {
+          "name": "Update lecture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"lecturer_id\": 1,\n  \"event_id\": 1,\n  \"name\": \"Intro to Microservices\",\n  \"duration\": {\n    \"seconds\": 3600,\n    \"nanos\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "update"
+              ]
+            },
+            "description": "UpdateLecture -> Empty"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete lecture",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "delete"
+              ]
+            },
+            "description": "DeleteLecture"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Lectures (query)",
+      "item": [
+        {
+          "name": "Get lecture by ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/get-by-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "get-by-id"
+              ]
+            },
+            "description": "GetLectureByID -> lecture-query-service:50055"
+          },
+          "response": []
+        },
+        {
+          "name": "Get lecture by name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Intro to Microservices\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/get-by-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "get-by-name"
+              ]
+            },
+            "description": "GetLectureByName -> lecture-query-service:50055"
+          },
+          "response": []
+        },
+        {
+          "name": "List lectures by event ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": 1,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/list-by-event",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "list-by-event"
+              ]
+            },
+            "description": "ListLecturesByEventID"
+          },
+          "response": []
+        },
+        {
+          "name": "List lectures by lecturer ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lecturer_id\": 1,\n  \"page\": 1,\n  \"page_size\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lectures/list-by-lecturer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lectures",
+                "list-by-lecturer"
+              ]
+            },
+            "description": "ListLecturesByLecturerID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sourced events (event sourcing)",
+      "item": [
+        {
+          "name": "Create sourced event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sourced Conf\",\n  \"cotisation_price\": 20.0,\n  \"agenda\": \"ES demo\",\n  \"type\": \"CONFERENCE\",\n  \"date_time\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  },\n  \"location_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events"
+              ]
+            },
+            "description": "event.EventSourcingService/CreateSourcedEvent -> event-service:50052. Response returns aggregate_id + version; use aggregate_id in the calls below."
+          },
+          "response": []
+        },
+        {
+          "name": "Rename sourced event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\",\n  \"new_name\": \"Renamed Conf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/rename",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "rename"
+              ]
+            },
+            "description": "RenameSourcedEvent"
+          },
+          "response": []
+        },
+        {
+          "name": "Reschedule sourced event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\",\n  \"new_date_time\": {\n    \"seconds\": 1798106400,\n    \"nanos\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/reschedule",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "reschedule"
+              ]
+            },
+            "description": "RescheduleSourcedEvent"
+          },
+          "response": []
+        },
+        {
+          "name": "Relocate sourced event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\",\n  \"new_location_id\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/relocate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "relocate"
+              ]
+            },
+            "description": "RelocateSourcedEvent"
+          },
+          "response": []
+        },
+        {
+          "name": "Change sourced event price",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\",\n  \"new_price\": 25.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/change-price",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "change-price"
+              ]
+            },
+            "description": "ChangeSourcedEventPrice"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel sourced event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\",\n  \"reason\": \"Low attendance\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "cancel"
+              ]
+            },
+            "description": "CancelSourcedEvent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get sourced event state",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/get-state",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "get-state"
+              ]
+            },
+            "description": "GetSourcedEventState (current projected state)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get sourced event history",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/get-history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "get-history"
+              ]
+            },
+            "description": "GetSourcedEventHistory (full event log)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create sourced event snapshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"aggregate_id\": \"{{aggregateId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/sourced-events/create-snapshot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "sourced-events",
+                "create-snapshot"
+              ]
+            },
+            "description": "CreateSourcedEventSnapshot"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:9080"
+    },
+    {
+      "key": "aggregateId",
+      "value": "PASTE-aggregate_id-FROM-create-sourced-event"
+    }
+  ]
+}

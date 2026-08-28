@@ -27,12 +27,12 @@ func NewMailConsumer(
 	cfg config.MailConfig,
 ) (*MailConsumer, error) {
 	mgmt := conn.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: cfg.Queue}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: cfg.Queue}); err != nil {
 		if !errors.Is(err, rmq.ErrPreconditionFailed) {
 			return nil, err
 		}
 	}
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: cfg.DLQQueue}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: cfg.DLQQueue}); err != nil {
 		if !errors.Is(err, rmq.ErrPreconditionFailed) {
 			return nil, err
 		}

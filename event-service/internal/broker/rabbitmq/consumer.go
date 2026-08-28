@@ -11,7 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var deadLetterThreshold int64 = 10
 var deadLetterExchange string = "dlx"
 var deadLetterRoutingKey string = "event-dlx"
 
@@ -47,15 +46,8 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 		return errors.New("no broker connection")
 	}
 
-	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{
-		Name:                 queueName,
-		DeliveryLimit:        deadLetterThreshold,
-		DeadLetterExchange:   deadLetterExchange,
-		DeadLetterRoutingKey: deadLetterRoutingKey}); err != nil {
-		if !errors.Is(err, rmq.ErrPreconditionFailed) {
-			return fmt.Errorf("declare queue %s: %w", queueName, err)
-		}
+	if err := declareClassicWithDLQ(ctx, b.Connection.Management(), queueName); err != nil {
+		return err
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)

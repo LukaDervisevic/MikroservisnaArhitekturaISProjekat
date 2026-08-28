@@ -18,6 +18,9 @@ import (
 	"gorm.io/gorm"
 )
 
+var deadLetterExchange string = "dlx"
+var deadLetterRoutingKey string = "lecture-query-dlx"
+
 type Message struct {
 	IdempotentKey uuid.UUID
 	SagaID        uuid.UUID `json:"sagaId"`
@@ -84,11 +87,8 @@ func (b *ConsumerConn) NewQueueConsumer(ctx context.Context, queueName string) e
 		return errors.New("broken consumer connection")
 	}
 
-	mgmt := b.Connection.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
-		if !errors.Is(err, rmq.ErrPreconditionFailed) {
-			return fmt.Errorf("declare queue %s: %w", queueName, err)
-		}
+	if err := declareClassicWithDLQ(ctx, b.Connection.Management(), queueName); err != nil {
+		return err
 	}
 
 	consumer, err := b.Connection.NewConsumer(ctx, queueName, nil)
@@ -129,7 +129,7 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 		_ = delivery.Accept(ctx)
 		return
 	}
-
+	// Logika za orkestraciju, ne koreografiju
 	if msg.isSagaCommand() {
 		b.handleSagaCommand(ctx, delivery, msg)
 		return
@@ -159,17 +159,14 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 
 	if isDuplicateKey(err) {
 		b.remember(msg.IdempotentKey)
-		_ = delivery.Accept(ctx) // committed by someone else; still a success
+		_ = delivery.Accept(ctx)
 		return
 	}
-
-	// End of the saga chain: report the outcome back to lecture-service, which
-	// then commits or rolls back and reports on to lecturer-service.
+	// Koreografija SAGA
 	b.replyUpstream(ctx, msg, err)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("tx failed for message %s", msg.IdempotentKey)
-		_ = delivery.Requeue(ctx) // rolled back, safe to redeliver
+		b.retryOrDeadLetter(ctx, delivery, msg.IdempotentKey.String(), msg.Method, err)
 		return
 	}
 	b.remember(msg.IdempotentKey)

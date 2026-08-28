@@ -39,7 +39,7 @@ func (b *PublisherConn) NewQueuePublisher(ctx context.Context, conn *rmq.AmqpCon
 	}
 
 	mgmt := conn.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: queueName}); err != nil {
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: queueName}); err != nil {
 		if !errors.Is(err, rmq.ErrPreconditionFailed) {
 			return fmt.Errorf("declare queue %s: %w", queueName, err)
 		}
@@ -63,9 +63,6 @@ func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName stri
 	return err
 }
 
-// PublishSaga wraps body in a Message envelope carrying sagaID and publishes it.
-// sagaID is propagated unchanged along the whole saga chain so every participant
-// can correlate the reply that travels back to it.
 func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaID uuid.UUID, method string, body any) error {
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
