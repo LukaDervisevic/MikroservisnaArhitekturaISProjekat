@@ -70,16 +70,36 @@ func (cb *CircuitBreaker) tryRequest(err error) {
 	}
 }
 
+func isCircuitFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+	st, ok := status.FromError(err)
+	if !ok {
+		return true
+	}
+	switch st.Code() {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 func CircuitBreakerInterceptor(name string, cb *CircuitBreaker) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		if err := cb.tryClose(); err != nil {
 			return status.Error(codes.Unavailable, "circuit open for "+name)
 		}
+
 		err := invoker(ctx, method, req, reply, cc, opts...)
-		st, ok := status.FromError(err)
-		if !ok || st.Code() == codes.Unavailable || st.Code() == codes.DeadlineExceeded {
-			return err
+
+		if isCircuitFailure(err) {
+			cb.tryRequest(err)
+		} else {
+			cb.tryRequest(nil)
 		}
-		return nil
+
+		return err
 	}
 }
