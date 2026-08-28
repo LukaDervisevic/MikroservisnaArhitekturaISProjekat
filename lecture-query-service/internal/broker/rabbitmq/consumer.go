@@ -34,7 +34,7 @@ type Message struct {
 
 func (m Message) isSagaCommand() bool {
 	switch m.Method {
-	case MethodApplyLectureProjections, MethodCompensateLectureProjections:
+	case MethodApplyLectureProjections, MethodCompensateLectureProjections, MethodRemoveLectureProjections:
 		return true
 	}
 	return false
@@ -285,13 +285,32 @@ func (b *ConsumerConn) dispatchSaga(ctx context.Context, tx *gorm.DB, msg Messag
 		}
 		return nil, nil
 
+	case MethodRemoveLectureProjections:
+		payload, err := decode[RemoveLectureProjectionsPayload](msg.Body)
+		if err != nil {
+			return nil, err
+		}
+		before, err := lectures.ListAllByEventID(ctx, payload.EventID)
+		if err != nil {
+			return nil, fmt.Errorf("read projections for event %d before-image: %w", payload.EventID, err)
+		}
+		compensation, err := json.Marshal(LectureProjectionsCompensation{
+			EventID: payload.EventID,
+			Rows:    before,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("capture projections before-image: %w", err)
+		}
+		if err := lectures.DeleteAllByEventID(ctx, payload.EventID); err != nil {
+			return nil, fmt.Errorf("clear projections for event %d: %w", payload.EventID, err)
+		}
+		return compensation, nil
+
 	default:
 		return nil, fmt.Errorf("unknown saga method: %s", msg.Method)
 	}
 }
 
-// replaceProjections swaps every row belonging to an event for the given set,
-// which keeps adds, updates and removals consistent in one transaction.
 func replaceProjections(ctx context.Context, lectures *repo.LectureQueryRepo, eventID int64, rows []model.LectureQuery) error {
 	if err := lectures.DeleteAllByEventID(ctx, eventID); err != nil {
 		return fmt.Errorf("clear projections for event %d: %w", eventID, err)
@@ -320,7 +339,7 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 		if err != nil {
 			return err
 		}
-		return lectureQueryTx.UpdateLecture(ctx, lectureQuery)
+		return lectureQueryTx.ReplaceLecture(ctx, lectureQuery)
 	case "DeleteLectureQuery":
 		lectureQuery, err := decode[model.LectureQuery](msg.Body)
 		if err != nil {
@@ -337,7 +356,7 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 			return err
 		}
 		for i := range *lectureQueries {
-			if err := lectureQueryTx.UpdateLecture(ctx, &(*lectureQueries)[i]); err != nil {
+			if err := lectureQueryTx.ReplaceLecture(ctx, &(*lectureQueries)[i]); err != nil {
 				return fmt.Errorf("update lecture query projection: %w", err)
 			}
 		}

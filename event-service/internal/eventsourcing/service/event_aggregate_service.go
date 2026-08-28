@@ -8,24 +8,50 @@ import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/domainevent"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/snapshot"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/store"
-	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	"gorm.io/gorm"
 )
 
 const snapshotEvery = 5
 
 type EventAggregateService struct {
-	store     store.EventStore
-	snapshots snapshot.SnapshotStore
+	db         *gorm.DB
+	store      store.EventStore
+	snapshots  snapshot.SnapshotStore
+	projection *repo.EventRepo
 }
 
-func NewEventAggregateService(eventStore store.EventStore, snapshotStore snapshot.SnapshotStore) *EventAggregateService {
-	return &EventAggregateService{store: eventStore, snapshots: snapshotStore}
+func NewEventAggregateService(
+	db *gorm.DB,
+	eventStore store.EventStore,
+	snapshotStore snapshot.SnapshotStore,
+	projection *repo.EventRepo,
+) *EventAggregateService {
+	return &EventAggregateService{db: db, store: eventStore, snapshots: snapshotStore, projection: projection}
 }
 
-func (s *EventAggregateService) Load(ctx context.Context, id uuid.UUID) (*aggregate.EventAggregate, error) {
-	snap, err := s.snapshots.GetLatest(ctx, id)
+func (s *EventAggregateService) DB() *gorm.DB { return s.db }
+
+func (s *EventAggregateService) NextAggregateID(ctx context.Context) (int64, error) {
+	return s.store.NextAggregateID(ctx)
+}
+
+func (s *EventAggregateService) Load(ctx context.Context, id int64) (*aggregate.EventAggregate, error) {
+	return s.load(ctx, s.store, s.snapshots, id)
+}
+
+func (s *EventAggregateService) LoadTx(ctx context.Context, tx *gorm.DB, id int64) (*aggregate.EventAggregate, error) {
+	return s.load(ctx, s.store.WithTx(tx), s.snapshots.WithTx(tx), id)
+}
+
+func (s *EventAggregateService) load(
+	ctx context.Context,
+	eventStore store.EventStore,
+	snapshots snapshot.SnapshotStore,
+	id int64,
+) (*aggregate.EventAggregate, error) {
+	snap, err := snapshots.GetLatest(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("load snapshot: %w", err)
 	}
@@ -39,7 +65,7 @@ func (s *EventAggregateService) Load(ctx context.Context, id uuid.UUID) (*aggreg
 		agg = aggregate.NewEventAggregate(id)
 	}
 
-	tail, err := s.store.LoadFrom(ctx, id, fromVersion)
+	tail, err := eventStore.LoadFrom(ctx, id, fromVersion)
 	if err != nil {
 		return nil, fmt.Errorf("load event tail: %w", err)
 	}
@@ -47,162 +73,64 @@ func (s *EventAggregateService) Load(ctx context.Context, id uuid.UUID) (*aggreg
 	return agg, nil
 }
 
-func (s *EventAggregateService) save(ctx context.Context, agg *aggregate.EventAggregate) error {
+func (s *EventAggregateService) AppendTx(ctx context.Context, tx *gorm.DB, agg *aggregate.EventAggregate) error {
 	uncommitted := agg.UncommittedEvents()
 	if len(uncommitted) == 0 {
 		return nil
 	}
-	if err := s.store.Append(ctx, uncommitted); err != nil {
+	fromVersion := agg.Version() - int64(len(uncommitted))
+	if err := s.store.WithTx(tx).Append(ctx, uncommitted); err != nil {
 		return err
 	}
 	agg.MarkCommitted()
 
-	if agg.Version()%snapshotEvery == 0 {
-		if err := s.CreateSnapshot(ctx, agg); err != nil {
+	if err := s.syncProjection(ctx, tx, agg.ToState()); err != nil {
+		return fmt.Errorf("sync event projection %d: %w", agg.ID(), err)
+	}
+
+	if agg.Version()/snapshotEvery > fromVersion/snapshotEvery {
+		if err := s.snapshots.WithTx(tx).Save(ctx, agg.ToState()); err != nil {
 			return fmt.Errorf("auto snapshot at version %d: %w", agg.Version(), err)
 		}
 	}
 	return nil
 }
 
-func (s *EventAggregateService) CreateSnapshot(ctx context.Context, agg *aggregate.EventAggregate) error {
-	return s.snapshots.Save(ctx, agg.ToState())
+func (s *EventAggregateService) syncProjection(ctx context.Context, tx *gorm.DB, st aggregate.EventAggregateState) error {
+	proj := s.projection.WithTx(tx)
+	if st.Cancelled || !st.Exists {
+		return proj.DeleteEvent(ctx, st.ID)
+	}
+	return proj.UpsertEvent(ctx, &model.Event{
+		Id:              st.ID,
+		Name:            st.Name,
+		CotisationPrice: st.CotisationPrice,
+		Agenda:          st.Agenda,
+		Type:            st.Type,
+		DateTime:        st.DateTime,
+		LocationID:      st.LocationID,
+	})
 }
 
-func (s *EventAggregateService) GetHistory(ctx context.Context, id uuid.UUID) ([]domainevent.DomainEvent, error) {
-	return s.store.Load(ctx, id)
-}
-
-type CreateEventCommand struct {
-	Name            string
-	CotisationPrice float64
-	Agenda          string
-	Type            string
-	DateTime        int64
-	LocationID      int64
-}
-
-func (c CreateEventCommand) Validate() error {
-	if c.Name == "" {
-		return status.Error(codes.InvalidArgument, "name is required")
+func (s *EventAggregateService) DeleteAggregateTx(ctx context.Context, tx *gorm.DB, id int64) error {
+	if err := s.store.WithTx(tx).Delete(ctx, id); err != nil {
+		return fmt.Errorf("delete event log %d: %w", id, err)
 	}
-	if c.Agenda == "" {
-		return status.Error(codes.InvalidArgument, "agenda is required")
+	if err := tx.WithContext(ctx).
+		Where("aggregate_id = ?", id).
+		Delete(&snapshot.EventAggregateSnapshot{}).Error; err != nil {
+		return fmt.Errorf("delete event snapshots %d: %w", id, err)
 	}
-	if c.Type == "" {
-		return status.Error(codes.InvalidArgument, "type is required")
-	}
-	if c.LocationID <= 0 {
-		return status.Error(codes.InvalidArgument, "location_id is required")
+	if err := s.projection.WithTx(tx).DeleteEvent(ctx, id); err != nil {
+		return fmt.Errorf("delete event projection %d: %w", id, err)
 	}
 	return nil
 }
 
-func (s *EventAggregateService) CreateEvent(ctx context.Context, cmd CreateEventCommand) (*aggregate.EventAggregate, error) {
-	if err := cmd.Validate(); err != nil {
-		return nil, err
-	}
-	agg := aggregate.NewEventAggregate(uuid.New())
-	if err := agg.Create(cmd.Name, cmd.CotisationPrice, cmd.Agenda, cmd.Type, cmd.DateTime, cmd.LocationID); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
+func (s *EventAggregateService) GetHistory(ctx context.Context, id int64) ([]domainevent.DomainEvent, error) {
+	return s.store.Load(ctx, id)
 }
 
-type RenameEventCommand struct {
-	AggregateID uuid.UUID
-	NewName     string
-}
-
-func (s *EventAggregateService) RenameEvent(ctx context.Context, cmd RenameEventCommand) (*aggregate.EventAggregate, error) {
-	agg, err := s.Load(ctx, cmd.AggregateID)
-	if err != nil {
-		return nil, err
-	}
-	if err := agg.Rename(cmd.NewName); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
-}
-
-type RescheduleEventCommand struct {
-	AggregateID uuid.UUID
-	NewDateTime int64
-}
-
-func (s *EventAggregateService) RescheduleEvent(ctx context.Context, cmd RescheduleEventCommand) (*aggregate.EventAggregate, error) {
-	agg, err := s.Load(ctx, cmd.AggregateID)
-	if err != nil {
-		return nil, err
-	}
-	if err := agg.Reschedule(cmd.NewDateTime); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
-}
-
-type RelocateEventCommand struct {
-	AggregateID   uuid.UUID
-	NewLocationID int64
-}
-
-func (s *EventAggregateService) RelocateEvent(ctx context.Context, cmd RelocateEventCommand) (*aggregate.EventAggregate, error) {
-	agg, err := s.Load(ctx, cmd.AggregateID)
-	if err != nil {
-		return nil, err
-	}
-	if err := agg.Relocate(cmd.NewLocationID); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
-}
-
-type ChangeEventPriceCommand struct {
-	AggregateID uuid.UUID
-	NewPrice    float64
-}
-
-func (s *EventAggregateService) ChangeEventPrice(ctx context.Context, cmd ChangeEventPriceCommand) (*aggregate.EventAggregate, error) {
-	agg, err := s.Load(ctx, cmd.AggregateID)
-	if err != nil {
-		return nil, err
-	}
-	if err := agg.ChangePrice(cmd.NewPrice); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
-}
-
-type CancelEventCommand struct {
-	AggregateID uuid.UUID
-	Reason      string
-}
-
-func (s *EventAggregateService) CancelEvent(ctx context.Context, cmd CancelEventCommand) (*aggregate.EventAggregate, error) {
-	agg, err := s.Load(ctx, cmd.AggregateID)
-	if err != nil {
-		return nil, err
-	}
-	if err := agg.Cancel(cmd.Reason); err != nil {
-		return nil, err
-	}
-	if err := s.save(ctx, agg); err != nil {
-		return nil, err
-	}
-	return agg, nil
+func (s *EventAggregateService) CreateSnapshot(ctx context.Context, agg *aggregate.EventAggregate) error {
+	return s.snapshots.Save(ctx, agg.ToState())
 }

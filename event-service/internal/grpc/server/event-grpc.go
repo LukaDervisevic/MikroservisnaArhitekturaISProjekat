@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -38,6 +37,7 @@ type GrpcServer struct {
 	getEventByIDHandler *query.GetEventByIDHandler
 
 	eventSourcingService *esservice.EventAggregateService
+	events               *saga.EventCommands
 
 	eventpb.UnimplementedEventServiceServer
 	eventpb.UnimplementedEventSourcingServiceServer
@@ -48,11 +48,9 @@ func NewGrpcServer(
 	db *gorm.DB,
 	eventRepo *repo.EventRepo,
 	locationRepo *repo.LocationRepo,
-	queryBroker *rabbitmq.PublisherConn,
 	outboxRepo *outboxrepo.OutboxRepo,
 	eventSourcingService *esservice.EventAggregateService,
-	orchestrator *saga.Orchestrator,
-	updateEventSaga saga.Definition,
+	events *saga.EventCommands,
 ) *GrpcServer {
 	return &GrpcServer{
 		createLocationHandler:    command.NewCreateLocationHandler(db, locationRepo, outboxRepo),
@@ -62,13 +60,14 @@ func NewGrpcServer(
 		getLocationByNameHandler: query.NewGetLocationByNameHandler(locationRepo),
 		listLocationsHandler:     query.NewListLocationsHandler(locationRepo),
 
-		createEventHandler: command.NewCreateEventHandler(db, eventRepo, locationRepo, queryBroker, outboxRepo),
-		updateEventHandler: command.NewUpdateEventHandler(eventRepo, locationRepo, orchestrator, updateEventSaga),
-		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker, outboxRepo),
+		createEventHandler: command.NewCreateEventHandler(locationRepo, events),
+		updateEventHandler: command.NewUpdateEventHandler(locationRepo, events),
+		deleteEventHandler: command.NewDeleteEventHandler(events),
 
 		getEventByIDHandler: query.NewGetEventByIDHandler(eventRepo),
 
 		eventSourcingService: eventSourcingService,
+		events:               events,
 	}
 }
 

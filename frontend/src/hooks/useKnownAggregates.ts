@@ -1,10 +1,10 @@
 /**
- * Remembers aggregate IDs seen in this browser.
+ * Remembers event ids opened on the Event Sourcing page in this browser.
  *
- * event-service exposes no "list aggregates" route — every event-sourcing
- * route addresses one aggregate by ID — so without this, an ID would have to
- * be copied by hand after every create. Purely a local convenience; it is not
- * a source of truth and never leaves the browser.
+ * Since event-service is unified, any event id works here (including ones
+ * created from the Events page — the "History" action there deep-links in).
+ * The event-sourcing routes have no "list" of their own, so this is just a
+ * local shortcut list; it is not a source of truth and never leaves the browser.
  */
 
 import { useCallback, useState } from 'react'

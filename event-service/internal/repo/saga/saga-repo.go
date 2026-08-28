@@ -61,8 +61,10 @@ func (s *SagaStore) CreateStep(ctx context.Context, step *model.SagaStepLog) err
 
 func (s *SagaStore) UpdateStepState(ctx context.Context, stepID uuid.UUID, state model.StepState, compensation []byte, lastErr string) error {
 	updates := map[string]any{
-		"state":      state,
-		"last_error": lastErr,
+		"state": state,
+	}
+	if lastErr != "" {
+		updates["last_error"] = lastErr
 	}
 	if compensation != nil {
 		updates["compensation"] = compensation

@@ -34,7 +34,6 @@ func (c *Context) Output(step string) (json.RawMessage, bool) {
 	return out, ok
 }
 
-// Result is what a step reports back to the orchestrator on success.
 type Result struct {
 	Compensation json.RawMessage
 	Output       json.RawMessage
@@ -68,9 +67,9 @@ func (s *LocalStep) Compensate(ctx context.Context, sc *Context, compensation js
 type RemoteStep struct {
 	StepName         string
 	Queue            func() string
-	Method           string
-	CompensateMethod string
-	Payload          func(sc *Context) (any, error)
+	Method           func(sc *Context) string
+	CompensateMethod func(sc *Context) string
+	Payload          func(ctx context.Context, sc *Context) (any, error)
 
 	Publisher *rabbitmq.PublisherConn
 	Replies   *reply.Registry
@@ -80,12 +79,12 @@ type RemoteStep struct {
 func (s *RemoteStep) Name() string { return s.StepName }
 
 func (s *RemoteStep) Execute(ctx context.Context, sc *Context) (Result, error) {
-	body, err := s.Payload(sc)
+	body, err := s.Payload(ctx, sc)
 	if err != nil {
 		return Result{}, fmt.Errorf("build payload for %s: %w", s.StepName, err)
 	}
 
-	rep, err := s.dispatch(ctx, sc, s.Method, body)
+	rep, err := s.dispatch(ctx, sc, s.Method(sc), body)
 	if err != nil {
 		return Result{}, err
 	}
@@ -96,10 +95,14 @@ func (s *RemoteStep) Execute(ctx context.Context, sc *Context) (Result, error) {
 }
 
 func (s *RemoteStep) Compensate(ctx context.Context, sc *Context, compensation json.RawMessage) error {
-	if s.CompensateMethod == "" {
+	if s.CompensateMethod == nil {
 		return nil
 	}
-	rep, err := s.dispatch(ctx, sc, s.CompensateMethod, json.RawMessage(compensation))
+	method := s.CompensateMethod(sc)
+	if method == "" {
+		return nil
+	}
+	rep, err := s.dispatch(ctx, sc, method, json.RawMessage(compensation))
 	if err != nil {
 		return err
 	}

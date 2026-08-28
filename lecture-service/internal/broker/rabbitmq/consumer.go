@@ -35,7 +35,7 @@ type Message struct {
 
 func (m Message) isSagaCommand() bool {
 	switch m.Method {
-	case MethodApplyEventReplica, MethodCompensateEventReplica:
+	case MethodApplyEventReplica, MethodCompensateEventReplica, MethodRemoveEventReplica:
 		return true
 	}
 	return false
@@ -328,6 +328,40 @@ func (b *ConsumerConn) dispatchSaga(ctx context.Context, tx *gorm.DB, msg Messag
 			return nil, nil, fmt.Errorf("restore event replica %d: %w", c.EventID, err)
 		}
 		return nil, nil, nil
+
+	case MethodRemoveEventReplica:
+		p, err := decode[RemoveEventPayload](msg.Body)
+		if err != nil {
+			return nil, nil, err
+		}
+		lectures, err := b.lectureRepo.WithTx(tx).ListAllLecturesByEventID(ctx, p.EventID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("check lectures for event %d: %w", p.EventID, err)
+		}
+		if len(lectures) > 0 {
+			return nil, nil, fmt.Errorf("cannot delete event %d: it still has %d lecture(s)", p.EventID, len(lectures))
+		}
+		before, err := events.GetEventByID(ctx, p.EventID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read event replica %d before-image: %w", p.EventID, err)
+		}
+		if before != nil {
+			before.Location = nil
+		}
+		compensation, err := json.Marshal(EventReplicaCompensation{
+			EventID: p.EventID,
+			Existed: before != nil,
+			Row:     before,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("capture event replica before-image: %w", err)
+		}
+		if before != nil {
+			if err := events.DeleteEvent(ctx, p.EventID); err != nil {
+				return nil, nil, fmt.Errorf("remove event replica %d: %w", p.EventID, err)
+			}
+		}
+		return compensation, nil, nil
 
 	default:
 		return nil, nil, fmt.Errorf("unknown saga method: %s", msg.Method)

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { eventsApi, type EventRecord } from '../api'
 import { useLocationOptions } from '../hooks/useOptions'
@@ -54,6 +55,7 @@ const emptyForm: eventsApi.EventInput = {
 
 export function EventsPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const locations = useLocationOptions()
 
   const [mode, setMode] = useState<ListMode>('list')
@@ -86,9 +88,10 @@ export function EventsPage() {
         : eventsApi.listEventsByType(filters.type, page, PAGE_SIZE, signal),
   })
 
-  // Commands hit event-service; reads hit event-query-service, which is fed
-  // asynchronously over RabbitMQ. A refetch immediately after a write can
-  // still return the pre-write projection.
+  // Commands hit event-service, which runs an orchestrated saga that updates the
+  // event-query-service projection before the write returns — so a refetch right
+  // after a successful write already sees the change (a failed saga rolls it all
+  // back). A tiny window still exists between the saga's DB commits.
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['events'] })
   }
@@ -111,7 +114,7 @@ export function EventsPage() {
     <>
       <PageHeader
         title="Events"
-        description="Writes go to event-service:50052; reads come from the event-query-service:50053 projection, which is updated asynchronously over RabbitMQ."
+        description="Writes go to event-service:50052 as one event-sourced aggregate: each runs an orchestrated saga that propagates to the event-query-service:50053 read model and lecture-service before returning. Use History to inspect an event's stream."
         actions={<Button onClick={() => setCreating(true)}>New event</Button>}
       />
 
@@ -273,6 +276,14 @@ export function EventsPage() {
                       <div className="flex justify-end gap-1">
                         <Button
                           variant="ghost"
+                          onClick={() =>
+                            navigate(`/sourced-events?id=${record.id}`)
+                          }
+                        >
+                          History
+                        </Button>
+                        <Button
+                          variant="ghost"
                           onClick={() => setEditing(record)}
                         >
                           Edit
@@ -343,7 +354,7 @@ export function EventsPage() {
       <ConfirmDialog
         open={deleting !== null}
         title="Delete event"
-        message={`Delete “${deleting?.name ?? ''}”? The read-model projection is updated asynchronously, so the row may linger briefly after the write succeeds.`}
+        message={`Delete “${deleting?.name ?? ''}”? This cancels the event: it's removed here and from every read model in one saga, but the cancellation stays in its append-only history. Fails if the event still has lectures.`}
         pending={deleteMutation.isPending}
         error={deleteMutation.error}
         onCancel={() => {

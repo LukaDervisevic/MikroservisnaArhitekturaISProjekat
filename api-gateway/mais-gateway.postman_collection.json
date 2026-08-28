@@ -278,7 +278,7 @@
                 "events"
               ]
             },
-            "description": "event.EventService/CreateEvent -> event-service:50052. date_time MUST be {seconds,nanos}, not a string."
+            "description": "event.EventService/CreateEvent. Returns the event incl. its id. Same aggregate as /api/sourced-events."
           },
           "response": []
         },
@@ -312,7 +312,7 @@
                 "update"
               ]
             },
-            "description": "UpdateEvent -> Empty"
+            "description": "UpdateEvent: full replace. All fields required and non-empty. No-op (nothing changed) returns 200 without running a saga. Returns google.protobuf.Empty ({})."
           },
           "response": []
         },
@@ -346,11 +346,12 @@
                 "delete"
               ]
             },
-            "description": "DeleteEvent"
+            "description": "DeleteEvent == CancelSourcedEvent. Cancels the aggregate; removes the events row + downstream replicas. Fails if the event still has lectures."
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Coarse event API on the unified event-sourced aggregate. Create/Update/Delete each append domain events, run the saga, and propagate downstream. Update is a full replace (all fields required, non-empty). Delete cancels the aggregate (soft delete). Inspect history via /api/sourced-events/get-history."
     },
     {
       "name": "Events (query)",
@@ -1014,7 +1015,7 @@
                 "sourced-events"
               ]
             },
-            "description": "event.EventSourcingService/CreateSourcedEvent -> event-service:50052. Response returns aggregate_id + version; use aggregate_id in the calls below."
+            "description": "event.EventSourcingService/CreateSourcedEvent. Same aggregate as POST /api/events. Returns {\"aggregate_id\":\"<int>\",\"version\":1}; paste aggregate_id into the {{aggregateId}} collection variable."
           },
           "response": []
         },
@@ -1048,7 +1049,7 @@
                 "rename"
               ]
             },
-            "description": "RenameSourcedEvent"
+            "description": "RenameSourcedEvent. Appends EventRenamed, runs the saga, propagates to all 3 read stores."
           },
           "response": []
         },
@@ -1082,7 +1083,7 @@
                 "reschedule"
               ]
             },
-            "description": "RescheduleSourcedEvent"
+            "description": "RescheduleSourcedEvent. new_date_time must be {seconds,nanos}."
           },
           "response": []
         },
@@ -1116,7 +1117,7 @@
                 "relocate"
               ]
             },
-            "description": "RelocateSourcedEvent"
+            "description": "RelocateSourcedEvent. new_location_id must be an existing location."
           },
           "response": []
         },
@@ -1150,7 +1151,7 @@
                 "change-price"
               ]
             },
-            "description": "ChangeSourcedEventPrice"
+            "description": "ChangeSourcedEventPrice."
           },
           "response": []
         },
@@ -1184,7 +1185,7 @@
                 "cancel"
               ]
             },
-            "description": "CancelSourcedEvent"
+            "description": "CancelSourcedEvent == DeleteEvent: cancels the aggregate, removes its events row + downstream replicas; the cancellation remains in the log. Fails if the event still has lectures."
           },
           "response": []
         },
@@ -1218,7 +1219,7 @@
                 "get-state"
               ]
             },
-            "description": "GetSourcedEventState (current projected state)"
+            "description": "GetSourcedEventState: aggregate folded from its latest snapshot + event tail. 404 if never created / cancelled."
           },
           "response": []
         },
@@ -1252,7 +1253,7 @@
                 "get-history"
               ]
             },
-            "description": "GetSourcedEventHistory (full event log)"
+            "description": "GetSourcedEventHistory: the full append-only event log with human-readable details."
           },
           "response": []
         },
@@ -1286,11 +1287,12 @@
                 "create-snapshot"
               ]
             },
-            "description": "CreateSourcedEventSnapshot"
+            "description": "CreateSourcedEventSnapshot: forces a snapshot at the current version (auto-snapshots happen every 5)."
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Granular, one-field-per-call mutations on an event-sourced event, plus the read-only get-state / get-history / create-snapshot. Each mutation runs the same saga as /api/events/* and propagates downstream. aggregate_id is the event's integer id as a string."
     }
   ],
   "variable": [
@@ -1300,7 +1302,8 @@
     },
     {
       "key": "aggregateId",
-      "value": "PASTE-aggregate_id-FROM-create-sourced-event"
+      "value": "1",
+      "description": "Integer event id. Run 'Create sourced event' (or 'Create event') and paste the returned aggregate_id here."
     }
   ]
 }

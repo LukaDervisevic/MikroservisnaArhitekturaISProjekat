@@ -2,32 +2,47 @@ package server
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/aggregate"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/service"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/store"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/saga"
 	eventpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+func (g *GrpcServer) mutateSourcedEvent(ctx context.Context, in saga.EventChangeInput) (*eventpb.SourcedEventMutationResponse, error) {
+	sagaID, err := g.events.Run(ctx, in)
+	if err != nil {
+		return nil, saga.SagaError(sagaID, err)
+	}
+	agg, err := g.events.Load(ctx, in.EventID)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "loaded event after mutation failed")
+	}
+	return &eventpb.SourcedEventMutationResponse{
+		AggregateId: strconv.FormatInt(agg.ID(), 10),
+		Version:     agg.Version(),
+	}, nil
+}
+
 func (g *GrpcServer) CreateSourcedEvent(ctx context.Context, req *eventpb.CreateSourcedEventRequest) (*eventpb.SourcedEventMutationResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
-	agg, err := g.eventSourcingService.CreateEvent(ctx, service.CreateEventCommand{
-		Name: req.Name, CotisationPrice: req.CotisationPrice, Agenda: req.Agenda, Type: req.Type,
-		DateTime: req.DateTime.GetSeconds(), LocationID: req.LocationId,
-	})
+	id, err := g.events.NextEventID(ctx)
 	if err != nil {
-		return nil, sourcedEventError(err)
+		return nil, status.Error(codes.Internal, "failed to allocate event id")
 	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id,
+		Op:      saga.OpCreate,
+		Payload: saga.NewEventFieldsPayload(saga.EventFields{
+			Name: req.Name, CotisationPrice: req.CotisationPrice, Agenda: req.Agenda,
+			Type: req.Type, DateTime: req.DateTime.GetSeconds(), LocationID: req.LocationId,
+		}),
+	})
 }
 
 func (g *GrpcServer) RenameSourcedEvent(ctx context.Context, req *eventpb.RenameSourcedEventRequest) (*eventpb.SourcedEventMutationResponse, error) {
@@ -35,11 +50,9 @@ func (g *GrpcServer) RenameSourcedEvent(ctx context.Context, req *eventpb.Rename
 	if err != nil {
 		return nil, err
 	}
-	agg, err := g.eventSourcingService.RenameEvent(ctx, service.RenameEventCommand{AggregateID: id, NewName: req.NewName})
-	if err != nil {
-		return nil, sourcedEventError(err)
-	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id, Op: saga.OpRename, Payload: saga.NewNamePayload(req.NewName),
+	})
 }
 
 func (g *GrpcServer) RescheduleSourcedEvent(ctx context.Context, req *eventpb.RescheduleSourcedEventRequest) (*eventpb.SourcedEventMutationResponse, error) {
@@ -47,11 +60,9 @@ func (g *GrpcServer) RescheduleSourcedEvent(ctx context.Context, req *eventpb.Re
 	if err != nil {
 		return nil, err
 	}
-	agg, err := g.eventSourcingService.RescheduleEvent(ctx, service.RescheduleEventCommand{AggregateID: id, NewDateTime: req.NewDateTime.GetSeconds()})
-	if err != nil {
-		return nil, sourcedEventError(err)
-	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id, Op: saga.OpReschedule, Payload: saga.NewDateTimePayload(req.NewDateTime.GetSeconds()),
+	})
 }
 
 func (g *GrpcServer) RelocateSourcedEvent(ctx context.Context, req *eventpb.RelocateSourcedEventRequest) (*eventpb.SourcedEventMutationResponse, error) {
@@ -59,11 +70,9 @@ func (g *GrpcServer) RelocateSourcedEvent(ctx context.Context, req *eventpb.Relo
 	if err != nil {
 		return nil, err
 	}
-	agg, err := g.eventSourcingService.RelocateEvent(ctx, service.RelocateEventCommand{AggregateID: id, NewLocationID: req.NewLocationId})
-	if err != nil {
-		return nil, sourcedEventError(err)
-	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id, Op: saga.OpRelocate, Payload: saga.NewLocationPayload(req.NewLocationId),
+	})
 }
 
 func (g *GrpcServer) ChangeSourcedEventPrice(ctx context.Context, req *eventpb.ChangeSourcedEventPriceRequest) (*eventpb.SourcedEventMutationResponse, error) {
@@ -71,11 +80,9 @@ func (g *GrpcServer) ChangeSourcedEventPrice(ctx context.Context, req *eventpb.C
 	if err != nil {
 		return nil, err
 	}
-	agg, err := g.eventSourcingService.ChangeEventPrice(ctx, service.ChangeEventPriceCommand{AggregateID: id, NewPrice: req.NewPrice})
-	if err != nil {
-		return nil, sourcedEventError(err)
-	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id, Op: saga.OpChangePrice, Payload: saga.NewPricePayload(req.NewPrice),
+	})
 }
 
 func (g *GrpcServer) CancelSourcedEvent(ctx context.Context, req *eventpb.CancelSourcedEventRequest) (*eventpb.SourcedEventMutationResponse, error) {
@@ -83,11 +90,9 @@ func (g *GrpcServer) CancelSourcedEvent(ctx context.Context, req *eventpb.Cancel
 	if err != nil {
 		return nil, err
 	}
-	agg, err := g.eventSourcingService.CancelEvent(ctx, service.CancelEventCommand{AggregateID: id, Reason: req.Reason})
-	if err != nil {
-		return nil, sourcedEventError(err)
-	}
-	return &eventpb.SourcedEventMutationResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return g.mutateSourcedEvent(ctx, saga.EventChangeInput{
+		EventID: id, Op: saga.OpCancel, Payload: saga.NewReasonPayload(req.Reason),
+	})
 }
 
 func (g *GrpcServer) GetSourcedEventState(ctx context.Context, req *eventpb.GetSourcedEventStateRequest) (*eventpb.GetSourcedEventStateResponse, error) {
@@ -97,13 +102,13 @@ func (g *GrpcServer) GetSourcedEventState(ctx context.Context, req *eventpb.GetS
 	}
 	agg, err := g.eventSourcingService.Load(ctx, id)
 	if err != nil {
-		return nil, sourcedEventError(err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !agg.Exists() {
 		return nil, status.Error(codes.NotFound, "sourced event not found")
 	}
 	return &eventpb.GetSourcedEventStateResponse{
-		AggregateId:     agg.ID().String(),
+		AggregateId:     strconv.FormatInt(agg.ID(), 10),
 		Version:         agg.Version(),
 		Name:            agg.Name(),
 		CotisationPrice: agg.CotisationPrice(),
@@ -122,13 +127,13 @@ func (g *GrpcServer) GetSourcedEventHistory(ctx context.Context, req *eventpb.Ge
 	}
 	history, err := g.eventSourcingService.GetHistory(ctx, id)
 	if err != nil {
-		return nil, sourcedEventError(err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	pbEvents := make([]*eventpb.SourcedEvent, len(history))
 	for i, e := range history {
 		pbEvents[i] = &eventpb.SourcedEvent{
 			EventId:     e.GetEventID().String(),
-			AggregateId: e.GetAggregateID().String(),
+			AggregateId: strconv.FormatInt(e.GetAggregateID(), 10),
 			Version:     e.GetVersion(),
 			EventType:   e.EventType(),
 			OccurredAt:  timestamppb.New(e.GetOccurredAt()),
@@ -145,54 +150,31 @@ func (g *GrpcServer) CreateSourcedEventSnapshot(ctx context.Context, req *eventp
 	}
 	agg, err := g.eventSourcingService.Load(ctx, id)
 	if err != nil {
-		return nil, sourcedEventError(err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if !agg.Exists() {
 		return nil, status.Error(codes.NotFound, "sourced event not found")
 	}
 	if err := g.eventSourcingService.CreateSnapshot(ctx, agg); err != nil {
-		return nil, sourcedEventError(err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &eventpb.CreateSourcedEventSnapshotResponse{AggregateId: agg.ID().String(), Version: agg.Version()}, nil
+	return &eventpb.CreateSourcedEventSnapshotResponse{
+		AggregateId: strconv.FormatInt(agg.ID(), 10),
+		Version:     agg.Version(),
+	}, nil
 }
 
-func parseAggregateID(raw string) (uuid.UUID, error) {
+func parseAggregateID(raw string) (int64, error) {
 	if raw == "" {
-		return uuid.UUID{}, status.Error(codes.InvalidArgument, "aggregate_id is required")
+		return 0, status.Error(codes.InvalidArgument, "aggregate_id is required")
 	}
-	id, err := uuid.Parse(raw)
-	if err != nil {
-		return uuid.UUID{}, status.Error(codes.InvalidArgument, "aggregate_id must be a valid uuid")
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return 0, status.Error(codes.InvalidArgument, "aggregate_id must be a positive integer")
 	}
 	return id, nil
 }
 
 func timestampFromUnix(seconds int64) *timestamppb.Timestamp {
 	return timestamppb.New(time.Unix(seconds, 0))
-}
-
-func sourcedEventError(err error) error {
-	if s, ok := status.FromError(err); ok && s.Code() != codes.Unknown {
-		return err
-	}
-
-	switch {
-	case errors.Is(err, aggregate.ErrDoesNotExist):
-		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, aggregate.ErrAlreadyExists),
-		errors.Is(err, aggregate.ErrEventCancelled),
-		errors.Is(err, aggregate.ErrAlreadyCancelled),
-		errors.Is(err, aggregate.ErrNameRequired),
-		errors.Is(err, aggregate.ErrAgendaRequired),
-		errors.Is(err, aggregate.ErrTypeRequired),
-		errors.Is(err, aggregate.ErrInvalidDateTime),
-		errors.Is(err, aggregate.ErrInvalidLocation),
-		errors.Is(err, aggregate.ErrInvalidPrice),
-		errors.Is(err, aggregate.ErrNoOpChange):
-		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, store.ErrConcurrentModification):
-		return status.Error(codes.Aborted, err.Error())
-	default:
-		return status.Error(codes.Internal, fmt.Sprintf("%v", err))
-	}
 }

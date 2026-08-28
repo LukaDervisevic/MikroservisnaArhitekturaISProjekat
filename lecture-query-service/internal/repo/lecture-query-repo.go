@@ -19,6 +19,7 @@ type ILectureQueryRepo interface {
 	ListLecturesByEventID(ctx context.Context, filter ListLecturesByEventIDFilter) ([]model.LectureQuery, int64, error)
 	ListLecturesByLecturerID(ctx context.Context, filter ListLecturesByLecturerIDFilter) ([]model.LectureQuery, int64, error)
 	UpsertLecture(ctx context.Context, lecture *model.LectureQuery) error
+	ReplaceLecture(ctx context.Context, lecture *model.LectureQuery) error
 	ListAllByEventID(ctx context.Context, eventID int64) ([]model.LectureQuery, error)
 	DeleteAllByEventID(ctx context.Context, eventID int64) error
 	WithTx(tx *gorm.DB) *LectureQueryRepo
@@ -146,6 +147,20 @@ func (r *LectureQueryRepo) DeleteAllByEventID(ctx context.Context, eventID int64
 
 func (r *LectureQueryRepo) UpdateLecture(ctx context.Context, lecture *model.LectureQuery) error {
 	return r.db.WithContext(ctx).Save(lecture).Error
+}
+
+// ReplaceLecture makes the projection reflect exactly one row for this lecture_id.
+// The primary key is (lecture_id, event_id, lecturer_id), so an update that moves
+// the lecture to a different event or lecturer would otherwise leave the old row
+// behind (Save falls back to INSERT when the PK changed) — a visible duplicate.
+// Callers run this inside the consumer's transaction (via WithTx).
+func (r *LectureQueryRepo) ReplaceLecture(ctx context.Context, lecture *model.LectureQuery) error {
+	db := r.db.WithContext(ctx)
+	if err := db.Where("lecture_id = ?", lecture.LectureID).
+		Delete(&model.LectureQuery{}).Error; err != nil {
+		return err
+	}
+	return db.Create(lecture).Error
 }
 
 func (r *LectureQueryRepo) DeleteLecture(ctx context.Context, lectureId int64, lecturerId int64, eventId int64) error {

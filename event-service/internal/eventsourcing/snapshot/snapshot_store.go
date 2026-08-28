@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/aggregate"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type SnapshotStore interface {
 	Save(ctx context.Context, state aggregate.EventAggregateState) error
-	GetLatest(ctx context.Context, aggregateID uuid.UUID) (*aggregate.EventAggregateState, error)
+	GetLatest(ctx context.Context, aggregateID int64) (*aggregate.EventAggregateState, error)
+	WithTx(tx *gorm.DB) SnapshotStore
 }
 
 type EventAggregateSnapshot struct {
-	AggregateID uuid.UUID `gorm:"column:aggregate_id;primaryKey;type:uuid"`
+	AggregateID int64     `gorm:"column:aggregate_id;primaryKey"`
 	Version     int64     `gorm:"column:version;primaryKey"`
 	State       []byte    `gorm:"column:state"`
 	CreatedAt   time.Time `gorm:"column:created_at"`
@@ -30,6 +30,13 @@ type GormSnapshotStore struct {
 
 func NewGormSnapshotStore(db *gorm.DB) *GormSnapshotStore {
 	return &GormSnapshotStore{db: db}
+}
+
+func (s *GormSnapshotStore) WithTx(tx *gorm.DB) SnapshotStore {
+	if tx == nil {
+		return s
+	}
+	return &GormSnapshotStore{db: tx}
 }
 
 func (s *GormSnapshotStore) Save(ctx context.Context, state aggregate.EventAggregateState) error {
@@ -49,7 +56,7 @@ func (s *GormSnapshotStore) Save(ctx context.Context, state aggregate.EventAggre
 	return nil
 }
 
-func (s *GormSnapshotStore) GetLatest(ctx context.Context, aggregateID uuid.UUID) (*aggregate.EventAggregateState, error) {
+func (s *GormSnapshotStore) GetLatest(ctx context.Context, aggregateID int64) (*aggregate.EventAggregateState, error) {
 	var record EventAggregateSnapshot
 	err := s.db.WithContext(ctx).
 		Where("aggregate_id = ?", aggregateID).

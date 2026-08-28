@@ -9,7 +9,12 @@ import (
 const (
 	MethodApplyEventReplica      = "SagaApplyEventReplica"
 	MethodCompensateEventReplica = "SagaCompensateEventReplica"
+	MethodRemoveEventReplica     = "SagaRemoveEventReplica"
 )
+
+type RemoveEventPayload struct {
+	EventID int64 `json:"eventId"`
+}
 
 type EventReplicaCompensation struct {
 	EventID int64        `json:"eventId"`

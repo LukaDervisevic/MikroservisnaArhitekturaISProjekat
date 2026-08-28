@@ -1,7 +1,13 @@
 /**
- * The event-sourced write side of event-service. Unlike the CRUD event routes,
- * these address an aggregate by a string `aggregate_id` and every mutation
- * appends an event, returning the new version rather than the new state.
+ * The granular, one-field-per-call API for an event. event-service is unified
+ * onto a single event-sourced aggregate, so these routes and the coarse
+ * `/api/events/*` routes mutate the SAME event: every call appends a domain
+ * event, runs the orchestrated saga, and propagates to the read stores.
+ *
+ * `aggregate_id` is the event's integer id (the one `/api/events/get-by-id`
+ * uses), passed as a string because the proto field is `string`. Every mutation
+ * returns the new version rather than the new state; call `getSourcedEventState`
+ * to read the folded aggregate.
  */
 
 import { rpc, asObject, asArray } from './http'

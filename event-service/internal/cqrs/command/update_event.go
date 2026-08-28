@@ -28,28 +28,28 @@ func (c UpdateEventCommand) Validate() error {
 	if c.Name == "" {
 		return status.Error(codes.InvalidArgument, "name is required")
 	}
+	if c.Agenda == "" {
+		return status.Error(codes.InvalidArgument, "agenda is required")
+	}
+	if c.Type == "" {
+		return status.Error(codes.InvalidArgument, "type is required")
+	}
+	if c.DateTime <= 0 {
+		return status.Error(codes.InvalidArgument, "date_time is required")
+	}
+	if c.LocationID <= 0 {
+		return status.Error(codes.InvalidArgument, "location_id is required")
+	}
 	return nil
 }
 
 type UpdateEventHandler struct {
-	eventCommandRepo repo.IEventCommandRepo
 	locationReadRepo repo.ILocationReadRepo
-	orchestrator     *saga.Orchestrator
-	definition       saga.Definition
+	events           *saga.EventCommands
 }
 
-func NewUpdateEventHandler(
-	eventCommandRepo repo.IEventCommandRepo,
-	locationReadRepo repo.ILocationReadRepo,
-	orchestrator *saga.Orchestrator,
-	definition saga.Definition,
-) *UpdateEventHandler {
-	return &UpdateEventHandler{
-		eventCommandRepo: eventCommandRepo,
-		locationReadRepo: locationReadRepo,
-		orchestrator:     orchestrator,
-		definition:       definition,
-	}
+func NewUpdateEventHandler(locationReadRepo repo.ILocationReadRepo, events *saga.EventCommands) *UpdateEventHandler {
+	return &UpdateEventHandler{locationReadRepo: locationReadRepo, events: events}
 }
 
 func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand) (*model.Event, error) {
@@ -57,12 +57,23 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 		return nil, err
 	}
 
-	existing, err := h.eventCommandRepo.GetEventByID(ctx, cmd.Id)
+	current, err := h.events.Load(ctx, cmd.Id)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to retrieve event")
+		return nil, status.Error(codes.Internal, "failed to load event")
 	}
-	if existing == nil {
+	if !current.Exists() || current.Cancelled() {
 		return nil, status.Error(codes.NotFound, "event not found")
+	}
+
+	result := &model.Event{
+		Id: cmd.Id, Name: cmd.Name, CotisationPrice: cmd.CotisationPrice, Agenda: cmd.Agenda,
+		Type: cmd.Type, DateTime: cmd.DateTime, LocationID: cmd.LocationID,
+	}
+
+	if current.Name() == cmd.Name && current.CotisationPrice() == cmd.CotisationPrice &&
+		current.Agenda() == cmd.Agenda && current.Type() == cmd.Type &&
+		current.DateTime() == cmd.DateTime && current.LocationID() == cmd.LocationID {
+		return result, nil
 	}
 
 	location, err := h.locationReadRepo.GetLocationByID(ctx, cmd.LocationID)
@@ -73,27 +84,19 @@ func (h *UpdateEventHandler) Handle(ctx context.Context, cmd UpdateEventCommand)
 		return nil, status.Error(codes.NotFound, "location not found")
 	}
 
-	event := &model.Event{
-		Id:              cmd.Id,
-		Name:            cmd.Name,
-		CotisationPrice: cmd.CotisationPrice,
-		Agenda:          cmd.Agenda,
-		Type:            cmd.Type,
-		DateTime:        cmd.DateTime,
-		LocationID:      cmd.LocationID,
-	}
-
-	sagaID, err := h.orchestrator.Run(ctx, h.definition, event.Id, saga.UpdateEventInput{
-		Event:    event,
-		Location: location,
+	sagaID, err := h.events.Run(ctx, saga.EventChangeInput{
+		EventID: cmd.Id,
+		Op:      saga.OpUpdate,
+		Payload: saga.NewEventFieldsPayload(saga.EventFields{
+			Name: cmd.Name, CotisationPrice: cmd.CotisationPrice, Agenda: cmd.Agenda,
+			Type: cmd.Type, DateTime: cmd.DateTime, LocationID: cmd.LocationID,
+		}),
 	})
 	if err != nil {
-		log.Error().Err(err).
-			Str("saga_id", sagaID.String()).
-			Int64("event_id", event.Id).
-			Msg("update event saga did not complete; committed steps were compensated")
-		return nil, status.Errorf(codes.Internal, "update event saga %s failed and was rolled back: %v", sagaID, err)
+		log.Error().Err(err).Str("saga_id", sagaID.String()).Int64("event_id", cmd.Id).
+			Msg("update event saga failed and was rolled back")
+		return nil, saga.SagaError(sagaID, err)
 	}
 
-	return event, nil
+	return result, nil
 }

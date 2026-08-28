@@ -8,7 +8,7 @@ import (
 
 type DomainEvent interface {
 	GetEventID() uuid.UUID
-	GetAggregateID() uuid.UUID
+	GetAggregateID() int64
 	GetVersion() int64
 	GetOccurredAt() time.Time
 	EventType() string
@@ -17,17 +17,17 @@ type DomainEvent interface {
 
 type BaseEvent struct {
 	EventID     uuid.UUID `json:"eventId"`
-	AggregateID uuid.UUID `json:"aggregateId"`
+	AggregateID int64     `json:"aggregateId"`
 	Version     int64     `json:"version"`
 	OccurredAt  time.Time `json:"occurredAt"`
 }
 
-func (b BaseEvent) GetEventID() uuid.UUID     { return b.EventID }
-func (b BaseEvent) GetAggregateID() uuid.UUID { return b.AggregateID }
-func (b BaseEvent) GetVersion() int64         { return b.Version }
-func (b BaseEvent) GetOccurredAt() time.Time  { return b.OccurredAt }
+func (b BaseEvent) GetEventID() uuid.UUID    { return b.EventID }
+func (b BaseEvent) GetAggregateID() int64    { return b.AggregateID }
+func (b BaseEvent) GetVersion() int64        { return b.Version }
+func (b BaseEvent) GetOccurredAt() time.Time { return b.OccurredAt }
 
-func NewBase(aggregateID uuid.UUID, version int64) BaseEvent {
+func NewBase(aggregateID int64, version int64) BaseEvent {
 	return BaseEvent{
 		EventID:     uuid.New(),
 		AggregateID: aggregateID,
@@ -37,10 +37,13 @@ func NewBase(aggregateID uuid.UUID, version int64) BaseEvent {
 }
 
 const (
-	TypeEventCreated      = "EventCreated"
-	TypeEventRenamed      = "EventRenamed"
-	TypeEventRescheduled  = "EventRescheduled"
-	TypeEventRelocated    = "EventRelocated"
-	TypeEventPriceChanged = "EventPriceChanged"
-	TypeEventCancelled    = "EventCancelled"
+	TypeEventCreated       = "EventCreated"
+	TypeEventRenamed       = "EventRenamed"
+	TypeEventRescheduled   = "EventRescheduled"
+	TypeEventRelocated     = "EventRelocated"
+	TypeEventPriceChanged  = "EventPriceChanged"
+	TypeEventAgendaChanged = "EventAgendaChanged"
+	TypeEventTypeChanged   = "EventTypeChanged"
+	TypeEventCancelled     = "EventCancelled"
+	TypeEventUncancelled   = "EventUncancelled"
 )

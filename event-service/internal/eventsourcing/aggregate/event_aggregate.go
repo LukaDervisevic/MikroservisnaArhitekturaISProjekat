@@ -2,11 +2,10 @@ package aggregate
 
 import (
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/domainevent"
-	"github.com/google/uuid"
 )
 
 type EventAggregate struct {
-	id              uuid.UUID
+	id              int64
 	version         int64
 	exists          bool
 	name            string
@@ -20,11 +19,11 @@ type EventAggregate struct {
 	uncommitted []domainevent.DomainEvent
 }
 
-func NewEventAggregate(id uuid.UUID) *EventAggregate {
+func NewEventAggregate(id int64) *EventAggregate {
 	return &EventAggregate{id: id}
 }
 
-func (a *EventAggregate) ID() uuid.UUID            { return a.id }
+func (a *EventAggregate) ID() int64                { return a.id }
 func (a *EventAggregate) Version() int64           { return a.version }
 func (a *EventAggregate) Exists() bool             { return a.exists }
 func (a *EventAggregate) Name() string             { return a.name }
@@ -154,6 +153,73 @@ func (a *EventAggregate) ChangePrice(newPrice float64) error {
 	return nil
 }
 
+func (a *EventAggregate) ChangeAgenda(newAgenda string) error {
+	if err := a.mustBeMutable(); err != nil {
+		return err
+	}
+	if newAgenda == "" {
+		return ErrAgendaRequired
+	}
+	if newAgenda == a.agenda {
+		return ErrNoOpChange
+	}
+
+	a.raise(&domainevent.EventAgendaChanged{
+		BaseEvent: domainevent.NewBase(a.id, a.version+1),
+		OldAgenda: a.agenda,
+		NewAgenda: newAgenda,
+	})
+	return nil
+}
+
+func (a *EventAggregate) ChangeType(newType string) error {
+	if err := a.mustBeMutable(); err != nil {
+		return err
+	}
+	if newType == "" {
+		return ErrTypeRequired
+	}
+	if newType == a.eventType {
+		return ErrNoOpChange
+	}
+
+	a.raise(&domainevent.EventTypeChanged{
+		BaseEvent: domainevent.NewBase(a.id, a.version+1),
+		OldType:   a.eventType,
+		NewType:   newType,
+	})
+	return nil
+}
+
+func (a *EventAggregate) ApplyUpdate(name string, cotisationPrice float64, agenda, eventType string, dateTime, locationID int64) error {
+	if err := a.mustBeMutable(); err != nil {
+		return err
+	}
+
+	changed := false
+	for _, mutate := range []func() error{
+		func() error { return a.Rename(name) },
+		func() error { return a.ChangePrice(cotisationPrice) },
+		func() error { return a.ChangeAgenda(agenda) },
+		func() error { return a.ChangeType(eventType) },
+		func() error { return a.Reschedule(dateTime) },
+		func() error { return a.Relocate(locationID) },
+	} {
+		switch err := mutate(); {
+		case err == nil:
+			changed = true
+		case err == ErrNoOpChange:
+		default:
+			return err
+		}
+	}
+
+	if !changed {
+		return ErrNoOpChange
+	}
+	return nil
+}
+
 func (a *EventAggregate) Cancel(reason string) error {
 	if !a.exists {
 		return ErrDoesNotExist
@@ -166,6 +232,48 @@ func (a *EventAggregate) Cancel(reason string) error {
 		BaseEvent: domainevent.NewBase(a.id, a.version+1),
 		Reason:    reason,
 	})
+	return nil
+}
+
+func (a *EventAggregate) uncancel(reason string) {
+	if !a.cancelled {
+		return
+	}
+	a.raise(&domainevent.EventUncancelled{
+		BaseEvent: domainevent.NewBase(a.id, a.version+1),
+		Reason:    reason,
+	})
+}
+
+// For saga orchestration
+func (a *EventAggregate) RestoreTo(before EventAggregateState) error {
+	if !before.Exists {
+		return nil
+	}
+	if a.cancelled && !before.Cancelled {
+		a.uncancel("saga compensation")
+	}
+	if a.name != before.Name {
+		_ = a.Rename(before.Name)
+	}
+	if a.cotisationPrice != before.CotisationPrice {
+		_ = a.ChangePrice(before.CotisationPrice)
+	}
+	if a.agenda != before.Agenda {
+		_ = a.ChangeAgenda(before.Agenda)
+	}
+	if a.eventType != before.Type {
+		_ = a.ChangeType(before.Type)
+	}
+	if a.dateTime != before.DateTime {
+		_ = a.Reschedule(before.DateTime)
+	}
+	if a.locationID != before.LocationID {
+		_ = a.Relocate(before.LocationID)
+	}
+	if !a.cancelled && before.Cancelled {
+		_ = a.Cancel("saga compensation")
+	}
 	return nil
 }
 
@@ -202,8 +310,14 @@ func (a *EventAggregate) apply(e domainevent.DomainEvent) {
 		a.locationID = ev.NewLocationID
 	case *domainevent.EventPriceChanged:
 		a.cotisationPrice = ev.NewPrice
+	case *domainevent.EventAgendaChanged:
+		a.agenda = ev.NewAgenda
+	case *domainevent.EventTypeChanged:
+		a.eventType = ev.NewType
 	case *domainevent.EventCancelled:
 		a.cancelled = true
+	case *domainevent.EventUncancelled:
+		a.cancelled = false
 	}
 	a.version = e.GetVersion()
 }
@@ -216,16 +330,16 @@ func (a *EventAggregate) ReplayHistory(events []domainevent.DomainEvent) {
 
 // EventAggregateState is a snapshot of EventAggregate
 type EventAggregateState struct {
-	ID              uuid.UUID `json:"id"`
-	Version         int64     `json:"version"`
-	Exists          bool      `json:"exists"`
-	Name            string    `json:"name"`
-	CotisationPrice float64   `json:"cotisationPrice"`
-	Agenda          string    `json:"agenda"`
-	Type            string    `json:"type"`
-	DateTime        int64     `json:"dateTime"`
-	LocationID      int64     `json:"locationId"`
-	Cancelled       bool      `json:"cancelled"`
+	ID              int64   `json:"id"`
+	Version         int64   `json:"version"`
+	Exists          bool    `json:"exists"`
+	Name            string  `json:"name"`
+	CotisationPrice float64 `json:"cotisationPrice"`
+	Agenda          string  `json:"agenda"`
+	Type            string  `json:"type"`
+	DateTime        int64   `json:"dateTime"`
+	LocationID      int64   `json:"locationId"`
+	Cancelled       bool    `json:"cancelled"`
 }
 
 func (a *EventAggregate) ToState() EventAggregateState {

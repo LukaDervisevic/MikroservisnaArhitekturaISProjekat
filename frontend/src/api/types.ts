@@ -225,6 +225,10 @@ export function mapLecture(raw: unknown): LectureCommandResult {
 
 /* ------------------------------------------------------------------ */
 /* Event sourcing                                                      */
+/*                                                                    */
+/* event-service is unified onto one event-sourced aggregate per       */
+/* event, so `aggregateId` here is the same integer id as              */
+/* `EventRecord.id` — kept as a string because the proto field is.     */
 /* ------------------------------------------------------------------ */
 
 export interface SourcedEventMutation {

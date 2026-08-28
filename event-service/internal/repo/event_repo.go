@@ -53,6 +53,11 @@ func (r *EventRepo) UpdateEvent(ctx context.Context, event *model.Event) error {
 	return r.db.WithContext(ctx).Save(event).Error
 }
 
+func (r *EventRepo) UpsertEvent(ctx context.Context, event *model.Event) error {
+	event.Location = nil
+	return r.db.WithContext(ctx).Save(event).Error
+}
+
 func (r *EventRepo) DeleteEvent(ctx context.Context, id int64) error {
 	res := r.db.WithContext(ctx).Delete(&model.Event{}, id)
 	if res.Error != nil {
@@ -62,6 +67,10 @@ func (r *EventRepo) DeleteEvent(ctx context.Context, id int64) error {
 		return fmt.Errorf("event with id %d not found", id)
 	}
 	return nil
+}
+
+func (r *EventRepo) RemoveEvent(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.Event{}, id).Error
 }
 
 func (r *EventRepo) GetEventByID(ctx context.Context, id int64) (*model.Event, error) {

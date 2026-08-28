@@ -41,6 +41,7 @@ type UpdateLectureHandler struct {
 	db            *gorm.DB
 	lectureRepo   repo.ILectureRepo
 	eventRepo     repo.IEventReadRepo
+	lecturerRepo  repo.ILecturerReadRepo
 	publisherConn *rabbitmq.PublisherConn
 	sagaReplies   *saga.SagaReplyRegistry
 }
@@ -49,6 +50,7 @@ func NewUpdateLectureHandler(
 	db *gorm.DB,
 	lectureRepo repo.ILectureRepo,
 	eventRepo repo.IEventReadRepo,
+	lecturerRepo repo.ILecturerReadRepo,
 	brokerConn *rabbitmq.PublisherConn,
 	sagaReplies *saga.SagaReplyRegistry,
 ) *UpdateLectureHandler {
@@ -56,6 +58,7 @@ func NewUpdateLectureHandler(
 		db:            db,
 		lectureRepo:   lectureRepo,
 		eventRepo:     eventRepo,
+		lecturerRepo:  lecturerRepo,
 		publisherConn: brokerConn,
 		sagaReplies:   sagaReplies,
 	}
@@ -83,8 +86,19 @@ func (h *UpdateLectureHandler) Handle(
 			return nil, status.Error(codes.NotFound, "event not found")
 		}
 		lecture.EventID = cmd.EventID
+		lecture.Event = event // keep the association in step with the id for the projection
 	}
-	lecture.LecturerID = cmd.LecturerID
+	if cmd.LecturerID != 0 && cmd.LecturerID != lecture.LecturerID {
+		lecturer, err := h.lecturerRepo.GetLecturerByID(ctx, cmd.LecturerID)
+		if err != nil {
+			return nil, status.Error(codes.Internal, "failed to verify lecturer")
+		}
+		if lecturer == nil {
+			return nil, status.Error(codes.NotFound, "lecturer not found")
+		}
+		lecture.LecturerID = cmd.LecturerID
+		lecture.Lecturer = lecturer
+	}
 	lecture.Name = cmd.Name
 	lecture.Duration = cmd.Duration
 

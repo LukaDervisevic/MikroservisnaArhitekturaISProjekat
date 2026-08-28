@@ -53,8 +53,10 @@ func main() {
 	outboxRepo := outboxrepo.NewOutboxRepo(conn)
 
 	eventSourcingService := esservice.NewEventAggregateService(
+		conn,
 		esstore.NewGormEventStore(conn),
 		essnapshot.NewGormSnapshotStore(conn),
+		eventRepo,
 	)
 
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
@@ -78,11 +80,13 @@ func main() {
 
 	sagaReplies := reply.NewRegistry()
 	orchestrator := saga.NewOrchestrator(sagarepo.NewSagaStore(conn))
-	updateEventSaga := saga.NewUpdateEventSaga(saga.UpdateEventSagaDeps{
-		EventRepo: eventRepo,
+	eventSaga := saga.NewEventSaga(saga.EventSagaDeps{
+		Service:   eventSourcingService,
+		Locations: locationRepo,
 		Publisher: queryBroker,
 		Replies:   sagaReplies,
 	})
+	eventCommands := saga.NewEventCommands(orchestrator, eventSaga, eventSourcingService)
 
 	sagaConsumer, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, sagaReplies)
 	if err != nil {
@@ -92,7 +96,7 @@ func main() {
 		log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", sagaReplyQueue)
 	}
 
-	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, queryBroker, outboxRepo, eventSourcingService, orchestrator, updateEventSaga)
+	eventServer := server.NewGrpcServer(conn, eventRepo, locationRepo, outboxRepo, eventSourcingService, eventCommands)
 
 	grpcServer := grpc.NewServer()
 	event.RegisterEventServiceServer(grpcServer, eventServer)

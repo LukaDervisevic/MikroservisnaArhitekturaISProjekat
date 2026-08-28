@@ -15,7 +15,12 @@ type EventProjectionCompensation struct {
 const (
 	MethodApplyEventProjection      = "SagaApplyEventProjection"
 	MethodCompensateEventProjection = "SagaCompensateEventProjection"
+	MethodRemoveEventProjection     = "SagaRemoveEventProjection"
 )
+
+type RemoveEventPayload struct {
+	EventID int64 `json:"eventId"`
+}
 
 type SagaReply struct {
 	Success      bool            `json:"success"`

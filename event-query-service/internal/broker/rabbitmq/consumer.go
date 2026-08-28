@@ -34,7 +34,7 @@ type Message struct {
 
 func (m Message) isSagaCommand() bool {
 	switch m.Method {
-	case MethodApplyEventProjection, MethodCompensateEventProjection:
+	case MethodApplyEventProjection, MethodCompensateEventProjection, MethodRemoveEventProjection:
 		return true
 	}
 	return false
@@ -279,6 +279,30 @@ func (b *ConsumerConn) dispatchSaga(ctx context.Context, tx *gorm.DB, msg Messag
 			return nil, nil, fmt.Errorf("restore projection %d: %w", c.EventID, err)
 		}
 		return nil, nil, nil
+
+	case MethodRemoveEventProjection:
+		p, err := decode[RemoveEventPayload](msg.Body)
+		if err != nil {
+			return nil, nil, err
+		}
+		before, err := events.GetEventByID(ctx, p.EventID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("read projection %d before-image: %w", p.EventID, err)
+		}
+		compensation, err := json.Marshal(EventProjectionCompensation{
+			EventID: p.EventID,
+			Existed: before != nil,
+			Row:     before,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("capture projection before-image: %w", err)
+		}
+		if before != nil {
+			if err := events.DeleteEvent(ctx, p.EventID); err != nil {
+				return nil, nil, fmt.Errorf("remove projection %d: %w", p.EventID, err)
+			}
+		}
+		return compensation, nil, nil
 
 	default:
 		return nil, nil, fmt.Errorf("unknown saga method: %s", msg.Method)

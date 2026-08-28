@@ -2,21 +2,13 @@ package command
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"time"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
-	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
-	"github.com/google/uuid"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/saga"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gorm.io/gorm"
 )
 
 type CreateEventCommand struct {
@@ -32,6 +24,15 @@ func (c CreateEventCommand) Validate() error {
 	if c.Name == "" {
 		return status.Error(codes.InvalidArgument, "name is required")
 	}
+	if c.Agenda == "" {
+		return status.Error(codes.InvalidArgument, "agenda is required")
+	}
+	if c.Type == "" {
+		return status.Error(codes.InvalidArgument, "type is required")
+	}
+	if c.DateTime <= 0 {
+		return status.Error(codes.InvalidArgument, "date_time is required")
+	}
 	if c.LocationID <= 0 {
 		return status.Error(codes.InvalidArgument, "location_id is required")
 	}
@@ -39,21 +40,19 @@ func (c CreateEventCommand) Validate() error {
 }
 
 type CreateEventHandler struct {
-	db               *gorm.DB
-	eventWriteRepo   repo.IEventCommandRepo
 	locationReadRepo repo.ILocationReadRepo
-	broker           *rabbitmq.PublisherConn
-	outboxRepo       *outboxrepo.OutboxRepo
+	events           *saga.EventCommands
 }
 
-func NewCreateEventHandler(db *gorm.DB, eventWriteRepo repo.IEventCommandRepo, locationReadRepo repo.ILocationReadRepo, broker *rabbitmq.PublisherConn, outboxRepo *outboxrepo.OutboxRepo) *CreateEventHandler {
-	return &CreateEventHandler{db: db, eventWriteRepo: eventWriteRepo, locationReadRepo: locationReadRepo, broker: broker, outboxRepo: outboxRepo}
+func NewCreateEventHandler(locationReadRepo repo.ILocationReadRepo, events *saga.EventCommands) *CreateEventHandler {
+	return &CreateEventHandler{locationReadRepo: locationReadRepo, events: events}
 }
 
 func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand) (*model.Event, error) {
 	if err := cmd.Validate(); err != nil {
 		return nil, err
 	}
+
 	location, err := h.locationReadRepo.GetLocationByID(ctx, cmd.LocationID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to verify location")
@@ -61,66 +60,28 @@ func (h *CreateEventHandler) Handle(ctx context.Context, cmd CreateEventCommand)
 	if location == nil {
 		return nil, status.Error(codes.NotFound, "location not found")
 	}
-	event := &model.Event{
-		Name:            cmd.Name,
-		CotisationPrice: cmd.CotisationPrice,
-		Agenda:          cmd.Agenda,
-		Type:            cmd.Type,
-		DateTime:        cmd.DateTime,
-		LocationID:      cmd.LocationID,
+
+	id, err := h.events.NextEventID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "failed to allocate event id")
 	}
-	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.eventWriteRepo.WithTx(tx).CreateEvent(ctx, event); err != nil {
-			return status.Error(codes.Internal, "failed to create event")
-		}
 
-		eventWithLocationQuery, err := json.Marshal(mapper.MapEventToQuery(event, location))
-		if err != nil {
-			return fmt.Errorf("unable to marshal event with location query")
-		}
-
-		queryMsg := rabbitmq.Message{
-			IdempotentKey: uuid.New(),
-			Body:          eventWithLocationQuery,
-			Method:        "CreateEventWithLocation",
-			TimeStamp:     time.Now(),
-			Retries:       0,
-		}
-
-		var msgByte []byte
-		msgByte, err = json.Marshal(queryMsg)
-		if err != nil {
-			log.Error().Err(err).Msgf("unable to encode a message with key %s", queryMsg.IdempotentKey.String())
-			return status.Error(codes.Internal, "failed to marshal event")
-		}
-
-		err = h.broker.Publish(ctx, msgByte, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"), true)
-		if err != nil {
-			log.Error().Err(err).Msgf("unable to publish a message with key %s", queryMsg.IdempotentKey.String())
-			return status.Error(codes.Internal, "failed to publish event")
-		}
-
-		eventBytes, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("unable to marshal event for outbox")
-		}
-
-		outboxMsg := rabbitmq.Message{
-			IdempotentKey: uuid.New(),
-			Body:          eventBytes,
-			Method:        "CreateEvent",
-			TimeStamp:     time.Now(),
-			Retries:       0,
-		}
-		if err := h.outboxRepo.WithTx(tx).StashMessage(ctx, outboxMsg); err != nil {
-			return err
-		}
-
-		return nil
+	sagaID, err := h.events.Run(ctx, saga.EventChangeInput{
+		EventID: id,
+		Op:      saga.OpCreate,
+		Payload: saga.NewEventFieldsPayload(saga.EventFields{
+			Name: cmd.Name, CotisationPrice: cmd.CotisationPrice, Agenda: cmd.Agenda,
+			Type: cmd.Type, DateTime: cmd.DateTime, LocationID: cmd.LocationID,
+		}),
 	})
 	if err != nil {
-		return nil, err
+		log.Error().Err(err).Str("saga_id", sagaID.String()).Int64("event_id", id).
+			Msg("create event saga failed and was rolled back")
+		return nil, saga.SagaError(sagaID, err)
 	}
 
-	return event, nil
+	return &model.Event{
+		Id: id, Name: cmd.Name, CotisationPrice: cmd.CotisationPrice, Agenda: cmd.Agenda,
+		Type: cmd.Type, DateTime: cmd.DateTime, LocationID: cmd.LocationID,
+	}, nil
 }

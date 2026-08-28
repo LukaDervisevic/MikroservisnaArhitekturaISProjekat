@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { sourcedEventsApi, type SourcedEventEntry } from '../api'
 import { useKnownAggregates } from '../hooks/useKnownAggregates'
@@ -39,11 +40,21 @@ const commandLabels: Record<Command, string> = {
 export function SourcedEventsPage() {
   const queryClient = useQueryClient()
   const { aggregates, remember, forget } = useKnownAggregates()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [aggregateId, setAggregateId] = useState('')
-  const [idDraft, setIdDraft] = useState('')
+  const [aggregateId, setAggregateId] = useState(() => searchParams.get('id') ?? '')
+  const [idDraft, setIdDraft] = useState(() => searchParams.get('id') ?? '')
   const [creating, setCreating] = useState(false)
   const [command, setCommand] = useState<Command | null>(null)
+
+  // Deep link: /sourced-events?id=42 (used by the "History" action on the Events page).
+  useEffect(() => {
+    const id = searchParams.get('id')
+    if (id && id !== aggregateId) {
+      setAggregateId(id)
+      setIdDraft(id)
+    }
+  }, [searchParams, aggregateId])
 
   const stateQuery = useQuery({
     queryKey: ['sourced-event', aggregateId, 'state'],
@@ -75,13 +86,14 @@ export function SourcedEventsPage() {
     if (!trimmed) return
     setAggregateId(trimmed)
     setIdDraft(trimmed)
+    setSearchParams(trimmed ? { id: trimmed } : {}, { replace: true })
   }
 
   return (
     <>
       <PageHeader
         title="Event sourcing"
-        description="The event-sourced write side of event-service. Each command appends an immutable event to the aggregate's stream and returns the new version; state is rebuilt by replaying that stream from the latest snapshot."
+        description="event-service is unified onto one event-sourced aggregate per event. Any event id works here — including events created on the Events page. Each command appends an immutable event, runs the orchestrated saga, propagates to the read stores, and returns the new version; state is rebuilt by replaying the stream from the latest snapshot."
         actions={
           <Button onClick={() => setCreating(true)}>New sourced event</Button>
         }
@@ -97,13 +109,13 @@ export function SourcedEventsPage() {
         >
           <div className="min-w-64 flex-1">
             <Field
-              label="Aggregate ID"
-              hint="There is no route to list aggregates, so IDs created here are remembered in this browser only."
+              label="Event ID"
+              hint="The event's integer id (same one the Events page shows). Recently opened ids are remembered in this browser."
             >
               <Input
                 value={idDraft}
                 onChange={(event) => setIdDraft(event.target.value)}
-                placeholder="e.g. 8f14e45f-ceea-467a-9f36-8d1f7b2c0a13"
+                placeholder="e.g. 42"
                 className="font-mono"
               />
             </Field>

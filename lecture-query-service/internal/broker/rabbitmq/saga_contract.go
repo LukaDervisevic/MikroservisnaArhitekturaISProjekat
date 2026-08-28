@@ -9,7 +9,12 @@ import (
 const (
 	MethodApplyLectureProjections      = "SagaApplyLectureProjections"
 	MethodCompensateLectureProjections = "SagaCompensateLectureProjections"
+	MethodRemoveLectureProjections     = "SagaRemoveLectureProjections"
 )
+
+type RemoveLectureProjectionsPayload struct {
+	EventID int64 `json:"eventId"`
+}
 
 type ApplyLectureProjectionsPayload struct {
 	EventID     int64                `json:"eventId"`
