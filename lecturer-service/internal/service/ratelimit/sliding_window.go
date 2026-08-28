@@ -6,10 +6,6 @@ import (
 	"time"
 )
 
-// SlidingWindow allows at most Limit events in any window of Period, based on
-// the actual history of the events instead of a fixed delay between them. A
-// burst may go through back to back until the window is full; from then on each
-// caller waits exactly until the oldest event leaves the window.
 type SlidingWindow struct {
 	limit  int
 	period time.Duration

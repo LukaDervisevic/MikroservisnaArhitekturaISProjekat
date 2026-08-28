@@ -86,7 +86,7 @@ func (h *UpdateLectureHandler) Handle(
 			return nil, status.Error(codes.NotFound, "event not found")
 		}
 		lecture.EventID = cmd.EventID
-		lecture.Event = event // keep the association in step with the id for the projection
+		lecture.Event = event
 	}
 	if cmd.LecturerID != 0 && cmd.LecturerID != lecture.LecturerID {
 		lecturer, err := h.lecturerRepo.GetLecturerByID(ctx, cmd.LecturerID)

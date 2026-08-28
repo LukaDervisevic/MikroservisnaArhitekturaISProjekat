@@ -149,11 +149,6 @@ func (r *LectureQueryRepo) UpdateLecture(ctx context.Context, lecture *model.Lec
 	return r.db.WithContext(ctx).Save(lecture).Error
 }
 
-// ReplaceLecture makes the projection reflect exactly one row for this lecture_id.
-// The primary key is (lecture_id, event_id, lecturer_id), so an update that moves
-// the lecture to a different event or lecturer would otherwise leave the old row
-// behind (Save falls back to INSERT when the PK changed) — a visible duplicate.
-// Callers run this inside the consumer's transaction (via WithTx).
 func (r *LectureQueryRepo) ReplaceLecture(ctx context.Context, lecture *model.LectureQuery) error {
 	db := r.db.WithContext(ctx)
 	if err := db.Where("lecture_id = ?", lecture.LectureID).

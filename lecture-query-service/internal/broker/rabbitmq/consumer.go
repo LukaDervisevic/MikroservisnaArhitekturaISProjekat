@@ -190,11 +190,6 @@ func (b *ConsumerConn) replyUpstream(ctx context.Context, msg Message, txErr err
 	}
 }
 
-// handleSagaCommand runs one orchestrated step and answers the orchestrator.
-//
-// Unlike the fire-and-forget path, a failure here is NOT requeued: the
-// orchestrator owns the retry/abort decision, and it has already been told the
-// step failed. Requeueing would re-run work the saga has decided to compensate.
 func (b *ConsumerConn) handleSagaCommand(ctx context.Context, delivery rmq.IDeliveryContext, msg Message) {
 	logger := log.With().
 		Str("saga_id", msg.SagaID.String()).
@@ -238,16 +233,12 @@ func (b *ConsumerConn) handleSagaCommand(ctx context.Context, delivery rmq.IDeli
 
 	replyQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 	if pubErr := b.publisherConn.PublishSagaReply(ctx, replyQueue, msg.SagaID, msg.CorrelationID, msg.Step, rep); pubErr != nil {
-		// The orchestrator will time this step out and compensate.
 		logger.Error().Err(pubErr).Str("queue", replyQueue).Msg("saga: failed to publish reply")
 	}
 
 	_ = delivery.Accept(ctx)
 }
 
-// dispatchSaga applies one saga step, returning the before-image needed to undo
-// it. Both the forward step and its compensation swap the complete row set for
-// one event, so the two are exact inverses of each other.
 func (b *ConsumerConn) dispatchSaga(ctx context.Context, tx *gorm.DB, msg Message) (json.RawMessage, error) {
 	lectures := b.lectureQueryRepo.WithTx(tx)
 
@@ -347,9 +338,6 @@ func (b *ConsumerConn) dispatch(ctx context.Context, tx *gorm.DB, msg Message) e
 		}
 		return lectureQueryTx.DeleteLecture(ctx, lectureQuery.LectureID, lectureQuery.LecturerId, lectureQuery.EventId)
 
-	// Saga step: lecture-service sends the already-built projections, so this
-	// service only persists them. All rows land in one tx, so the reply this
-	// service sends back covers the whole batch.
 	case "UpdateLectureQuerySAGA":
 		lectureQueries, err := decode[[]model.LectureQuery](msg.Body)
 		if err != nil {
@@ -386,7 +374,6 @@ func isDuplicateKey(err error) bool {
 		return false
 	}
 
-	// Works when gorm.Config{TranslateError: true} is set.
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return true
 	}

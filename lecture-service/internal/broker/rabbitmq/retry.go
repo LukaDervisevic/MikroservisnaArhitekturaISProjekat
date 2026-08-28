@@ -24,7 +24,7 @@ func priorDeliveries(delivery rmq.IDeliveryContext) uint32 {
 func (b *ConsumerConn) retryOrDeadLetter(ctx context.Context, delivery rmq.IDeliveryContext, idempotentKey, method string, cause error) {
 	attempt := priorDeliveries(delivery) + 1
 
-	if attempt >= maxDeliveryAttempts {
+	if attempt > maxDeliveryAttempts {
 		log.Error().Err(cause).Uint32("attempts", attempt).
 			Msgf("message %s (%s) exhausted retries, dead-lettering", idempotentKey, method)
 		reject := &amqp.Error{Condition: "retries-exhausted", Description: cause.Error()}

@@ -328,7 +328,6 @@ func (a *EventAggregate) ReplayHistory(events []domainevent.DomainEvent) {
 	}
 }
 
-// EventAggregateState is a snapshot of EventAggregate
 type EventAggregateState struct {
 	ID              int64   `json:"id"`
 	Version         int64   `json:"version"`

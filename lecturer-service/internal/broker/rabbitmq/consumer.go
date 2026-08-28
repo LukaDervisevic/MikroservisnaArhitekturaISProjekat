@@ -134,7 +134,6 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	}
 
 	err := b.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Claim the key first. Unique PK violation == concurrent/duplicate delivery.
 		claim := ProcessedMessage{
 			IdempotentKey: msg.IdempotentKey,
 			Method:        msg.Method,
@@ -149,7 +148,7 @@ func (b *ConsumerConn) handle(ctx context.Context, delivery rmq.IDeliveryContext
 	if err != nil {
 		if isDuplicateKey(err) {
 			b.remember(msg.IdempotentKey)
-			_ = delivery.Accept(ctx) // committed by someone else; still a success
+			_ = delivery.Accept(ctx)
 			return
 		}
 		b.retryOrDeadLetter(ctx, delivery, msg.IdempotentKey.String(), msg.Method, err)
