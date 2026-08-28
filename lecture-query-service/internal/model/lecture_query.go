@@ -15,7 +15,7 @@ type LectureQuery struct {
 	LecturerFullName         string  `gorm:"column:lecturer_full_name"`
 	LecturerTitle            string  `gorm:"column:lecturer_title"`
 	LecturerFieldOfExpertise string  `gorm:"column:lecturer_field_of_expertise"`
-	LectureID                int64   `gorm:"column:lecture_id"`
+	LectureID                int64   `gorm:"column:lecture_id;primaryKey"`
 	Name                     string  `gorm:"column:lecture_name"`
 	Duration                 int64   `gorm:"column:lecture_duration"`
 }

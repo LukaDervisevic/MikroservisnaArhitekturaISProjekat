@@ -2,13 +2,10 @@ package command
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"github.com/google/uuid"
@@ -23,6 +20,7 @@ type UpdateLecturerCommand struct {
 	FullName         string
 	Title            string
 	FieldOfExpertise string
+	Email            string
 }
 
 func (c UpdateLecturerCommand) Validate() error {
@@ -41,33 +39,25 @@ func (c UpdateLecturerCommand) Validate() error {
 	return nil
 }
 
+const sagaTimeout = 20 * time.Second
+
 type UpdateLecturerHandler struct {
-	lecturerRepo  *repo.LecturerRepo
+	lecturerRepo  repo.ILecturerRepo
 	db            *gorm.DB
 	publisherConn *rabbitmq.PublisherConn
-	consumerConn  *rabbitmq.ConsumerConn
-	sagaSendChan  map[int64]chan error
 	sagaReplies   *saga.SagaReplyRegistry
 }
 
-func NewUpdateLecturerHandler(lecturerRepo *repo.LecturerRepo,
+func NewUpdateLecturerHandler(lecturerRepo repo.ILecturerRepo,
 	db *gorm.DB,
 	publisherConn *rabbitmq.PublisherConn,
-	consumerConn *rabbitmq.ConsumerConn) *UpdateLecturerHandler {
-
-	var err error
-	err = publisherConn.NewQueueRequester(context.Background(), publisherConn.Connection, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"))
-	err = consumerConn.NewQueueResponder(context.Background(), os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"))
-	if err != nil {
-		return nil
-	}
+	sagaReplies *saga.SagaReplyRegistry) *UpdateLecturerHandler {
 
 	return &UpdateLecturerHandler{
 		lecturerRepo:  lecturerRepo,
 		db:            db,
 		publisherConn: publisherConn,
-		sagaSendChan:  make(map[int64]chan error),
-		sagaReplies:   saga.NewSagaReplyRegistry(),
+		sagaReplies:   sagaReplies,
 	}
 }
 
@@ -87,27 +77,37 @@ func (h *UpdateLecturerHandler) Handle(ctx context.Context, cmd UpdateLecturerCo
 	lecturer.FullName = cmd.FullName
 	lecturer.Title = cmd.Title
 	lecturer.FieldOfExpertise = cmd.FieldOfExpertise
+	lecturer.Email = cmd.Email
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		ch := h.sagaReplies.Register(lecturer.Id)
+		sagaID := uuid.New()
+		ch := h.sagaReplies.Register(sagaID)
+		defer h.sagaReplies.Unregister(sagaID)
 
-		go func() {
-			if err := h.sendUpdateEvent(ctx, lecturer); err != nil {
-				h.sagaReplies.Resolve(lecturer.Id, err)
-			}
-		}()
+		if err := h.publisherConn.PublishSaga(
+			ctx,
+			os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"),
+			sagaID,
+			"UpdateLecturerSAGA",
+			lecturer,
+		); err != nil {
+			log.Error().Err(err).Msgf("failed to dispatch saga %s for lecturer %d", sagaID, lecturer.Id)
+			return status.Error(codes.Internal, "failed to dispatch lecturer saga")
+		}
 
-		var sagaErr error
 		select {
-		case sagaErr = <-ch:
-		case <-time.After(10 * time.Second):
-			sagaErr = errors.New("saga reply timeout")
-		}
-		if sagaErr != nil {
-			return status.Error(codes.Internal, "saga failed: "+sagaErr.Error())
+		case sagaErr := <-ch:
+			if sagaErr != nil {
+				log.Warn().Err(sagaErr).Msgf("saga %s rolled back for lecturer %d", sagaID, lecturer.Id)
+				return status.Error(codes.Internal, "saga rolled back: "+sagaErr.Error())
+			}
+		case <-time.After(sagaTimeout):
+			log.Warn().Msgf("saga %s timed out for lecturer %d", sagaID, lecturer.Id)
+			return status.Error(codes.DeadlineExceeded, "saga reply timeout")
 		}
 
-		if errTran := h.lecturerRepo.UpdateLecturer(ctx, lecturer); errTran != nil {
+		if err := h.lecturerRepo.WithTx(tx).UpdateLecturer(ctx, lecturer); err != nil {
+			log.Error().Err(err).Msgf("failed to update lecturer %d after saga %s committed", lecturer.Id, sagaID)
 			return status.Error(codes.Internal, "failed to update lecturer")
 		}
 
@@ -115,37 +115,6 @@ func (h *UpdateLecturerHandler) Handle(ctx context.Context, cmd UpdateLecturerCo
 	})
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (h *UpdateLecturerHandler) sendUpdateEvent(ctx context.Context, lecturer *model.Lecturer) error {
-
-	lecturerBytes, err := json.Marshal(lecturer)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal lecturer with id %d", lecturer.Id)
-		return status.Error(codes.Internal, "failed to marshal lecture")
-	}
-
-	msg := rabbitmq.Message{
-		IdempotentKey: uuid.New(),
-		Body:          lecturerBytes,
-		Method:        "UpdateLecturerSAGA",
-		TimeStamp:     time.Now(),
-		Retries:       0,
-	}
-
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-		return status.Error(codes.Internal, "failed to marshal lecture")
-	}
-
-	err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), true)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to marshal message with key %s", msg.IdempotentKey.String())
-		return status.Error(codes.Internal, "failed to marshal lecture")
 	}
 
 	return nil

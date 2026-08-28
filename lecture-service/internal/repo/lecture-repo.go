@@ -13,6 +13,7 @@ type ILectureWriteRepo interface {
 	CreateLecture(ctx context.Context, lecture *model.Lecture) error
 	UpdateLecture(ctx context.Context, lecture *model.Lecture) error
 	DeleteLecture(ctx context.Context, id int64) error
+	WithTx(tx *gorm.DB) *LectureRepo
 }
 
 type ILectureReadRepo interface {
@@ -20,6 +21,11 @@ type ILectureReadRepo interface {
 	GetLectureByName(ctx context.Context, name string) (*model.Lecture, error)
 	ListLecturesByEventID(ctx context.Context, filter ListLecturesByEventIDFilter) ([]model.Lecture, int64, error)
 	ListLecturesByLecturerID(ctx context.Context, filter ListLecturesByLecturerIDFilter) ([]model.Lecture, int64, error)
+}
+
+type ILectureRepo interface {
+	ILectureReadRepo
+	ILectureWriteRepo
 }
 
 type ListLecturesByEventIDFilter struct {
@@ -40,6 +46,35 @@ type LectureRepo struct {
 
 func NewLectureRepo(db *gorm.DB) *LectureRepo {
 	return &LectureRepo{db: db}
+}
+
+func (r *LectureRepo) WithTx(tx *gorm.DB) *LectureRepo {
+	if tx == nil {
+		return r
+	}
+	return &LectureRepo{db: tx}
+}
+
+func (r *LectureRepo) ListAllLecturesByEventID(ctx context.Context, eventID int64) ([]model.Lecture, error) {
+	var lectures []model.Lecture
+	err := r.db.WithContext(ctx).
+		Preload("Event").
+		Preload("Event.Location").
+		Preload("Lecturer").
+		Where("event_id = ?", eventID).
+		Find(&lectures).Error
+	return lectures, err
+}
+
+func (r *LectureRepo) ListAllLecturesByLecturerID(ctx context.Context, lecturerID int64) ([]model.Lecture, error) {
+	var lectures []model.Lecture
+	err := r.db.WithContext(ctx).
+		Preload("Event").
+		Preload("Event.Location").
+		Preload("Lecturer").
+		Where("lecturer_id = ?", lecturerID).
+		Find(&lectures).Error
+	return lectures, err
 }
 
 func (r *LectureRepo) CreateLecture(ctx context.Context, lecture *model.Lecture) error {

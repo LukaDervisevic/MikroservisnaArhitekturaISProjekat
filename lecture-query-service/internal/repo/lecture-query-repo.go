@@ -7,6 +7,7 @@ import (
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ILectureQueryRepo interface {
@@ -17,6 +18,10 @@ type ILectureQueryRepo interface {
 	GetLectureByName(ctx context.Context, name string) (*model.LectureQuery, error)
 	ListLecturesByEventID(ctx context.Context, filter ListLecturesByEventIDFilter) ([]model.LectureQuery, int64, error)
 	ListLecturesByLecturerID(ctx context.Context, filter ListLecturesByLecturerIDFilter) ([]model.LectureQuery, int64, error)
+	UpsertLecture(ctx context.Context, lecture *model.LectureQuery) error
+	ReplaceLecture(ctx context.Context, lecture *model.LectureQuery) error
+	ListAllByEventID(ctx context.Context, eventID int64) ([]model.LectureQuery, error)
+	DeleteAllByEventID(ctx context.Context, eventID int64) error
 	WithTx(tx *gorm.DB) *LectureQueryRepo
 }
 
@@ -51,10 +56,22 @@ func (r *LectureQueryRepo) CreateLecture(ctx context.Context, lecture *model.Lec
 	return r.db.WithContext(ctx).Create(lecture).Error
 }
 
+func (r *LectureQueryRepo) UpsertLecture(ctx context.Context, lecture *model.LectureQuery) error {
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "lecture_id"}, {Name: "event_id"}, {Name: "lecturer_id"},
+			},
+			UpdateAll: true,
+		}).
+		Create(lecture).Error
+}
+
 func (r *LectureQueryRepo) GetLectureByID(ctx context.Context, id int64) (*model.LectureQuery, error) {
 	var lecture model.LectureQuery
 	result := r.db.WithContext(ctx).
-		First(&lecture, id)
+		Where("lecture_id = ?", id).
+		First(&lecture)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -114,12 +131,37 @@ func (r *LectureQueryRepo) ListLecturesByLecturerID(ctx context.Context, filter 
 	return lectures, totalCount, nil
 }
 
+func (r *LectureQueryRepo) ListAllByEventID(ctx context.Context, eventID int64) ([]model.LectureQuery, error) {
+	var lectures []model.LectureQuery
+	err := r.db.WithContext(ctx).
+		Where("event_id = ?", eventID).
+		Find(&lectures).Error
+	return lectures, err
+}
+
+func (r *LectureQueryRepo) DeleteAllByEventID(ctx context.Context, eventID int64) error {
+	return r.db.WithContext(ctx).
+		Where("event_id = ?", eventID).
+		Delete(&model.LectureQuery{}).Error
+}
+
 func (r *LectureQueryRepo) UpdateLecture(ctx context.Context, lecture *model.LectureQuery) error {
 	return r.db.WithContext(ctx).Save(lecture).Error
 }
 
+func (r *LectureQueryRepo) ReplaceLecture(ctx context.Context, lecture *model.LectureQuery) error {
+	db := r.db.WithContext(ctx)
+	if err := db.Where("lecture_id = ?", lecture.LectureID).
+		Delete(&model.LectureQuery{}).Error; err != nil {
+		return err
+	}
+	return db.Create(lecture).Error
+}
+
 func (r *LectureQueryRepo) DeleteLecture(ctx context.Context, lectureId int64, lecturerId int64, eventId int64) error {
-	res := r.db.WithContext(ctx).Delete(&model.LectureQuery{}, lectureId, lecturerId, eventId)
+	res := r.db.WithContext(ctx).
+		Where("lecture_id = ? AND lecturer_id = ? AND event_id = ?", lectureId, lecturerId, eventId).
+		Delete(&model.LectureQuery{})
 	if res.Error != nil {
 		return res.Error
 	}

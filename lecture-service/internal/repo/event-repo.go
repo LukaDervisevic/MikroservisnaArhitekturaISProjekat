@@ -22,6 +22,7 @@ type IEventWriteRepo interface {
 	CreateEvent(ctx context.Context, event *model.Event) error
 	UpdateEvent(ctx context.Context, event *model.Event) error
 	DeleteEvent(ctx context.Context, id int64) error
+	GetEventByID(ctx context.Context, id int64) (*model.Event, error)
 	WithTx(tx *gorm.DB) *EventRepo
 }
 

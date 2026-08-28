@@ -2,9 +2,13 @@ package rabbitmq
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Azure/go-amqp"
+	"github.com/google/uuid"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 )
 
@@ -12,7 +16,7 @@ type PublisherConn struct {
 	BrokerURI   string
 	Environment *rmq.Environment
 	Connection  *rmq.AmqpConnection
-	Requesters  map[string]rmq.Requester
+	Publishers  map[string]*rmq.Publisher
 }
 
 func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.AmqpConnOptions) (*PublisherConn, error) {
@@ -25,28 +29,84 @@ func NewPublisherConn(ctx context.Context, brokerURI string, connOptions *rmq.Am
 		BrokerURI:   brokerURI,
 		Environment: env,
 		Connection:  conn,
-		Requesters:  make(map[string]rmq.Requester),
+		Publishers:  make(map[string]*rmq.Publisher),
 	}, nil
 }
 
-func (b *PublisherConn) NewQueueRequester(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
+func (b *PublisherConn) NewQueuePublisher(ctx context.Context, conn *rmq.AmqpConnection, queueName string) error {
 	if conn == nil {
 		return fmt.Errorf("publisher connection is nil to queue %s", queueName)
 	}
-	requester, err := conn.NewRequester(ctx, &rmq.RequesterOptions{RequestQueueName: queueName})
-	if err != nil {
-		return fmt.Errorf("create responder for queue %s: %w", queueName, err)
+
+	mgmt := conn.Management()
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: queueName}); err != nil {
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return fmt.Errorf("declare queue %s: %w", queueName, err)
+		}
 	}
-	b.Requesters[queueName] = requester
+
+	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: queueName}, nil)
+	if err != nil {
+		return fmt.Errorf("create publisher for queue %s: %w", queueName, err)
+	}
+	b.Publishers[queueName] = publisher
 	return nil
 }
 
 func (b *PublisherConn) Publish(ctx context.Context, body []byte, queueName string, durable bool) error {
-	if b == nil || b.Requesters[queueName] == nil {
-		return fmt.Errorf("rabbitmq requester is not initialized")
+	if b == nil || b.Publishers[queueName] == nil {
+		return fmt.Errorf("rabbitmq publisher is not initialized for queue %s", queueName)
 	}
 	msg := rmq.NewMessage(body)
 	msg.Header = &amqp.MessageHeader{Durable: durable}
-	_, err := b.Requesters[queueName].Publish(ctx, msg)
+	_, err := b.Publishers[queueName].Publish(ctx, msg)
 	return err
+}
+
+func (b *PublisherConn) PublishSaga(ctx context.Context, queueName string, sagaID uuid.UUID, method string, body any) error {
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshal saga body for %s: %w", method, err)
+	}
+
+	payload, err := json.Marshal(Message{
+		IdempotentKey: uuid.New(),
+		SagaID:        sagaID,
+		Method:        method,
+		TimeStamp:     time.Now().UTC(),
+		Body:          bodyBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal saga envelope for %s: %w", method, err)
+	}
+
+	return b.Publish(ctx, payload, queueName, true)
+}
+
+func (b *PublisherConn) PublishSagaReply(
+	ctx context.Context,
+	queueName string,
+	sagaID, correlationID uuid.UUID,
+	step string,
+	rep SagaReply,
+) error {
+	bodyBytes, err := json.Marshal(rep)
+	if err != nil {
+		return fmt.Errorf("marshal saga reply body: %w", err)
+	}
+
+	payload, err := json.Marshal(Message{
+		IdempotentKey: uuid.New(),
+		SagaID:        sagaID,
+		CorrelationID: correlationID,
+		Step:          step,
+		Method:        "SagaReply",
+		TimeStamp:     time.Now().UTC(),
+		Body:          bodyBytes,
+	})
+	if err != nil {
+		return fmt.Errorf("marshal saga reply envelope: %w", err)
+	}
+
+	return b.Publish(ctx, payload, queueName, true)
 }

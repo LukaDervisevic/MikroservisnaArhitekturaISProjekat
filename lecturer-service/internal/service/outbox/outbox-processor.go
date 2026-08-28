@@ -6,21 +6,17 @@ import (
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
 	"github.com/rs/zerolog/log"
-	"gorm.io/gorm"
 )
 
 type OutboxProcessor struct {
-	db            *gorm.DB
 	outboxRepo    *outbox.OutboxRepo
 	publisherConn *rabbitmq.PublisherConn
 }
 
-func NewOutboxProcessor(db *gorm.DB, outboxRepo *outbox.OutboxRepo, brokerConn *rabbitmq.PublisherConn) *OutboxProcessor {
+func NewOutboxProcessor(outboxRepo *outbox.OutboxRepo, brokerConn *rabbitmq.PublisherConn) *OutboxProcessor {
 	return &OutboxProcessor{
-		db:            db,
 		outboxRepo:    outboxRepo,
 		publisherConn: brokerConn,
 	}
@@ -44,16 +40,10 @@ func (p *OutboxProcessor) StartPoller(ctx context.Context, interval time.Duratio
 	}()
 }
 
-// TODO: Add offset when i enable data streaming
+const outboxBatchSize = 10
+
 func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
-	var stashed []model.Outbox
-
-	err := p.db.WithContext(ctx).
-		Where("status = ?", outbox.StatusStashed).
-		Order("timestamp ASC").
-		Limit(10).
-		Find(&stashed).Error
-
+	stashed, err := p.outboxRepo.GetStashedMessages(ctx, outboxBatchSize)
 	if err != nil || len(stashed) == 0 {
 		return err
 	}
@@ -68,13 +58,7 @@ func (p *OutboxProcessor) ProcessOutbox(ctx context.Context) error {
 			continue
 		}
 
-		err = p.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			return tx.Model(&model.Outbox{}).
-				Where("id = ?", record.ID).
-				Update("status", outbox.StatusSent).Error
-		})
-
-		if err != nil {
+		if err := p.outboxRepo.MarkAsSent(ctx, record.ID); err != nil {
 			log.Error().Err(err).Msgf("failed to mark outbox record %s as sent", record.ID)
 		} else {
 			log.Info().Msgf("successfully published and marked outbox message %s", record.ID)

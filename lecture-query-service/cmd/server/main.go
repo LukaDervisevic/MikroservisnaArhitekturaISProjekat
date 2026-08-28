@@ -38,8 +38,10 @@ func main() {
 		return
 	}
 
+	lectureQueryRepo := repo.NewLectureQueryRepo(conn)
+
 	grpcServer := grpc.NewServer()
-	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(conn))
+	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(lectureQueryRepo))
 
 	go func() {
 		log.Printf("starting lecturer query service grpc server on port %v...", port)
@@ -49,27 +51,35 @@ func main() {
 		}
 	}()
 
-	var lecturerConsumerConn rabbitmq.ConsumerConn
+	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
+	lectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
+	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
+	sagaReplyEventQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
 
-	go func(brokerURI string, queue string) {
-		lectureQueryRepo := repo.NewLectureQueryRepo(conn)
-		broker := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo)
-
-		err := broker.NewQueueResponder(ctx, queue)
-		if err != nil {
-			return
+	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create publisher connection")
+	}
+	for _, queue := range []string{replyToLectureQueue, sagaReplyEventQueue} {
+		if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
 		}
-	}(
-		os.Getenv("RABBITMQ_BROKER_URI"),
-		os.Getenv("RABBITMQ_LECTURE_QUERY_QUEUE"),
-	)
+	}
+
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, lectureQueryRepo, publisherConn)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create consumer connection")
+	}
+	if err := consumerConn.NewQueueConsumer(ctx, lectureQueryQueue); err != nil {
+		log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", lectureQueryQueue)
+	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
-	defer func() { _ = lecturerConsumerConn.Environment.CloseConnections(ctx) }()
-	defer func() { _ = lecturerConsumerConn.Connection.Close(ctx) }()
+	defer func() { _ = consumerConn.Environment.CloseConnections(ctx) }()
+	defer func() { _ = consumerConn.Connection.Close(ctx) }()
 
 	log.Info().Msg("Shutting down lectuer gRPC server...")
 	grpcServer.GracefulStop()

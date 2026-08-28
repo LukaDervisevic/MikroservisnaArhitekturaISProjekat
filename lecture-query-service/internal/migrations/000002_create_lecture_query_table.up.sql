@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS lecture_query_service.lecture_query (
+CREATE TABLE IF NOT EXISTS lecture_query_service.lecture_queries (
      event_id                                   BIGSERIAL,
      event_name                   VARCHAR(255)   NOT NULL,
      event_cotisation_price       NUMERIC(10, 2) NOT NULL,

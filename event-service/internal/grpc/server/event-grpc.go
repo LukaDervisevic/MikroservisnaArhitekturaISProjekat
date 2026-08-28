@@ -3,10 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/broker/rabbitmq"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -14,17 +12,17 @@ import (
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/cqrs/query"
+	esservice "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/eventsourcing/service"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo"
+	outboxrepo "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/repo/outbox"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/event-service/internal/saga"
 	eventpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/event"
 	locationpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
 	"gorm.io/gorm"
 )
 
 type GrpcServer struct {
-	db  *gorm.DB
-	ctx context.Context
-
 	createLocationHandler    *command.CreateLocationHandler
 	updateLocationHandler    *command.UpdateLocationHandler
 	deleteLocationHandler    *command.DeleteLocationHandler
@@ -36,32 +34,40 @@ type GrpcServer struct {
 	updateEventHandler *command.UpdateEventHandler
 	deleteEventHandler *command.DeleteEventHandler
 
+	getEventByIDHandler *query.GetEventByIDHandler
+
+	eventSourcingService *esservice.EventAggregateService
+	events               *saga.EventCommands
+
 	eventpb.UnimplementedEventServiceServer
+	eventpb.UnimplementedEventSourcingServiceServer
 	locationpb.UnimplementedLocationServiceServer
 }
 
-func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
-	eventRepo := repo.NewEventRepo(db)
-	locationRepo := repo.NewLocationRepo(db)
-	// TODO: fix
-	queryBroker := rabbitmq.NewRabbitMQClientConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-	if queryBroker != nil {
-		queryBroker.NewQueueRequester(ctx, queryBroker.Connection, os.Getenv("RABBITMQ_EVENT_QUERY_QUEUE"))
-	}
-
+func NewGrpcServer(
+	db *gorm.DB,
+	eventRepo *repo.EventRepo,
+	locationRepo *repo.LocationRepo,
+	outboxRepo *outboxrepo.OutboxRepo,
+	eventSourcingService *esservice.EventAggregateService,
+	events *saga.EventCommands,
+) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
-		createLocationHandler:    command.NewCreateLocationHandler(locationRepo),
-		updateLocationHandler:    command.NewUpdateLocationHandler(locationRepo, locationRepo),
-		deleteLocationHandler:    command.NewDeleteLocationHandler(locationRepo, locationRepo),
+		createLocationHandler:    command.NewCreateLocationHandler(db, locationRepo, outboxRepo),
+		updateLocationHandler:    command.NewUpdateLocationHandler(db, locationRepo, locationRepo, outboxRepo),
+		deleteLocationHandler:    command.NewDeleteLocationHandler(db, locationRepo, locationRepo, outboxRepo),
 		getLocationByIDHandler:   query.NewGetLocationByIDHandler(locationRepo),
 		getLocationByNameHandler: query.NewGetLocationByNameHandler(locationRepo),
 		listLocationsHandler:     query.NewListLocationsHandler(locationRepo),
 
-		createEventHandler: command.NewCreateEventHandler(db, eventRepo, locationRepo, queryBroker),
-		updateEventHandler: command.NewUpdateEventHandler(db, eventRepo, locationRepo, queryBroker),
-		deleteEventHandler: command.NewDeleteEventHandler(db, eventRepo, queryBroker),
+		createEventHandler: command.NewCreateEventHandler(locationRepo, events),
+		updateEventHandler: command.NewUpdateEventHandler(locationRepo, events),
+		deleteEventHandler: command.NewDeleteEventHandler(events),
+
+		getEventByIDHandler: query.NewGetEventByIDHandler(eventRepo),
+
+		eventSourcingService: eventSourcingService,
+		events:               events,
 	}
 }
 
@@ -203,6 +209,17 @@ func (g *GrpcServer) CreateEvent(ctx context.Context, req *eventpb.CreateEventRe
 	return &eventpb.CreateEventResponse{Event: eventModelToProto(event)}, nil
 }
 
+func (g *GrpcServer) GetEventByID(ctx context.Context, req *eventpb.GetEventByIdRequest) (*eventpb.GetEventByIdQueryResponse, error) {
+	if req == nil || req.Id == 0 {
+		return nil, status.Error(codes.InvalidArgument, "id is required for event retrieval")
+	}
+	event, err := g.getEventByIDHandler.Handle(ctx, query.GetEventByIDQuery{Id: req.Id})
+	if err != nil {
+		return nil, err
+	}
+	return &eventpb.GetEventByIdQueryResponse{EventWithLocation: eventWithLocationModelToProto(event)}, nil
+}
+
 func (g *GrpcServer) UpdateEvent(ctx context.Context, req *eventpb.UpdateEventRequest) (*emptypb.Empty, error) {
 	if req == nil || req.Id == 0 {
 		return nil, status.Error(codes.InvalidArgument, "id is required for event update")
@@ -243,5 +260,23 @@ func eventModelToProto(e *model.Event) *eventpb.Event {
 		Id: e.Id, Name: e.Name, CotisationPrice: e.CotisationPrice, Agenda: e.Agenda, Type: e.Type,
 		DateTime: timestamppb.New(time.Unix(e.DateTime, 0)),
 		Location: locationModelToProto(e.Location),
+	}
+}
+
+func eventWithLocationModelToProto(e *model.EventWithLocation) *eventpb.EventWithLocation {
+	if e == nil {
+		return nil
+	}
+	return &eventpb.EventWithLocation{
+		EventId:              e.EventId,
+		EventName:            e.EventName,
+		EventCotisationPrice: e.EventCotisationPrice,
+		EventAgenda:          e.EventAgenda,
+		EventType:            e.EventType,
+		EventDateTime:        timestamppb.New(time.Unix(e.EventDateTime, 0)),
+		LocationId:           e.LocationID,
+		LocationName:         e.LocationName,
+		LocationAddress:      e.LocationAddress,
+		LocationCapacity:     e.LocationCapacity,
 	}
 }

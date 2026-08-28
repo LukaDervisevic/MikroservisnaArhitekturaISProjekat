@@ -20,6 +20,7 @@ type ILocationWriteRepo interface {
 	CreateLocation(ctx context.Context, location *model.Location) error
 	UpdateLocation(ctx context.Context, location *model.Location) error
 	DeleteLocation(ctx context.Context, id int64) error
+	WithTx(tx *gorm.DB) *LocationRepo
 }
 
 type ILocationReadRepo interface {
@@ -34,6 +35,13 @@ type LocationRepo struct {
 
 func NewLocationRepo(db *gorm.DB) *LocationRepo {
 	return &LocationRepo{db: db}
+}
+
+func (r *LocationRepo) WithTx(tx *gorm.DB) *LocationRepo {
+	if tx == nil {
+		return r
+	}
+	return &LocationRepo{db: tx}
 }
 
 func (r *LocationRepo) CreateLocation(ctx context.Context, location *model.Location) error {

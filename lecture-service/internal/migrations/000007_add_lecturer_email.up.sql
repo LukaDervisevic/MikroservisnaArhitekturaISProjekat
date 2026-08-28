@@ -1,0 +1,2 @@
+ALTER TABLE lecture_service.lecturers
+    ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT '';

@@ -3,87 +3,81 @@ package rabbitmq
 import (
 	"context"
 	"encoding/json"
-	"time"
+	"errors"
 
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/config"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/model"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/mail"
 	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	maxRetries      = 10
-	rateLimitPerMin = 10
-)
-
 type MailConsumer struct {
-	conn      *rmq.AmqpConnection
 	consumer  *rmq.Consumer
 	publisher *rmq.Publisher
 	dlq       *rmq.Publisher
-	outbox    *repo.OutboxRepo
-
-	sendQueue string
-	dlqQueue  string
+	worker    *mail.Worker
+	cfg       config.MailConfig
 }
 
 func NewMailConsumer(
 	ctx context.Context,
 	conn *rmq.AmqpConnection,
-	outbox *repo.OutboxRepo,
-	sendQueue string,
-	dlqQueue string,
+	worker *mail.Worker,
+	cfg config.MailConfig,
 ) (*MailConsumer, error) {
 	mgmt := conn.Management()
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: sendQueue}); err != nil {
-		return nil, err
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: cfg.Queue}); err != nil {
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return nil, err
+		}
 	}
-	if _, err := mgmt.DeclareQueue(ctx, &rmq.QuorumQueueSpecification{Name: dlqQueue}); err != nil {
-		return nil, err
+	if _, err := mgmt.DeclareQueue(ctx, &rmq.ClassicQueueSpecification{Name: cfg.DLQQueue}); err != nil {
+		if !errors.Is(err, rmq.ErrPreconditionFailed) {
+			return nil, err
+		}
 	}
 
-	consumer, err := conn.NewConsumer(ctx, sendQueue, nil)
+	consumer, err := conn.NewConsumer(ctx, cfg.Queue, nil)
 	if err != nil {
 		return nil, err
 	}
-	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: sendQueue}, nil)
+	publisher, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: cfg.Queue}, nil)
 	if err != nil {
 		return nil, err
 	}
-	dlq, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: dlqQueue}, nil)
+	dlq, err := conn.NewPublisher(ctx, &rmq.QueueAddress{Queue: cfg.DLQQueue}, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return &MailConsumer{
-		conn:      conn,
 		consumer:  consumer,
 		publisher: publisher,
 		dlq:       dlq,
-		outbox:    outbox,
-		sendQueue: sendQueue,
-		dlqQueue:  dlqQueue,
+		worker:    worker,
+		cfg:       cfg,
 	}, nil
 }
 
 func (c *MailConsumer) Start(ctx context.Context) {
-	interval := time.Minute / time.Duration(rateLimitPerMin)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	log.Info().Msgf("mail consumer started (rate limit %d/min, one message every %s)", rateLimitPerMin, interval)
+	log.Info().
+		Int("limit", c.cfg.RateLimit).
+		Dur("period", c.cfg.RatePeriod).
+		Str("queue", c.cfg.Queue).
+		Str("smtp", c.cfg.SMTP.Addr()).
+		Msg("mail consumer started")
 
 	for {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			log.Info().Msg("mail consumer shutting down")
 			return
-		case <-ticker.C:
 		}
 
 		delivery, err := c.consumer.Receive(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
+				log.Info().Msg("mail consumer shutting down")
 				return
 			}
 			log.Error().Err(err).Msg("failed to receive message")
@@ -109,17 +103,20 @@ func (c *MailConsumer) handle(ctx context.Context, delivery rmq.IDeliveryContext
 		return
 	}
 
-	err := c.outbox.WriteEmail(email)
+	err := c.worker.Process(ctx, email)
 	if err == nil {
-		log.Info().Str("to", email.To).Int("attempt", email.RetryCount+1).Msg("email written to outbox")
 		_ = delivery.Accept(ctx)
+		return
+	}
+	if ctx.Err() != nil {
+		_ = delivery.Requeue(ctx)
 		return
 	}
 
 	email.RetryCount++
 	log.Warn().Err(err).Int("retry_count", email.RetryCount).Str("to", email.To).Msg("email processing failed")
 
-	if email.RetryCount >= maxRetries {
+	if email.RetryCount >= c.cfg.MaxRetries {
 		if pubErr := c.republish(ctx, c.dlq, email); pubErr != nil {
 			log.Error().Err(pubErr).Msg("failed to publish to DLQ, requeueing original")
 			_ = delivery.Requeue(ctx)

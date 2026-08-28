@@ -1101,6 +1101,822 @@ func (x *ListEventsByTypeResponse) GetHasNextPage() bool {
 	return false
 }
 
+type SourcedEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	AggregateId   string                 `protobuf:"bytes,2,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	Version       int64                  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	EventType     string                 `protobuf:"bytes,4,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	Details       string                 `protobuf:"bytes,6,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourcedEvent) Reset() {
+	*x = SourcedEvent{}
+	mi := &file_proto_event_event_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourcedEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourcedEvent) ProtoMessage() {}
+
+func (x *SourcedEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourcedEvent.ProtoReflect.Descriptor instead.
+func (*SourcedEvent) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *SourcedEvent) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *SourcedEvent) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *SourcedEvent) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *SourcedEvent) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *SourcedEvent) GetOccurredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return nil
+}
+
+func (x *SourcedEvent) GetDetails() string {
+	if x != nil {
+		return x.Details
+	}
+	return ""
+}
+
+type CreateSourcedEventRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Name            string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	CotisationPrice float64                `protobuf:"fixed64,2,opt,name=cotisation_price,json=cotisationPrice,proto3" json:"cotisation_price,omitempty"`
+	Agenda          string                 `protobuf:"bytes,3,opt,name=agenda,proto3" json:"agenda,omitempty"`
+	Type            string                 `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
+	DateTime        *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=date_time,json=dateTime,proto3" json:"date_time,omitempty"`
+	LocationId      int64                  `protobuf:"varint,6,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreateSourcedEventRequest) Reset() {
+	*x = CreateSourcedEventRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSourcedEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSourcedEventRequest) ProtoMessage() {}
+
+func (x *CreateSourcedEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSourcedEventRequest.ProtoReflect.Descriptor instead.
+func (*CreateSourcedEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *CreateSourcedEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateSourcedEventRequest) GetCotisationPrice() float64 {
+	if x != nil {
+		return x.CotisationPrice
+	}
+	return 0
+}
+
+func (x *CreateSourcedEventRequest) GetAgenda() string {
+	if x != nil {
+		return x.Agenda
+	}
+	return ""
+}
+
+func (x *CreateSourcedEventRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *CreateSourcedEventRequest) GetDateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DateTime
+	}
+	return nil
+}
+
+func (x *CreateSourcedEventRequest) GetLocationId() int64 {
+	if x != nil {
+		return x.LocationId
+	}
+	return 0
+}
+
+type SourcedEventMutationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourcedEventMutationResponse) Reset() {
+	*x = SourcedEventMutationResponse{}
+	mi := &file_proto_event_event_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourcedEventMutationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourcedEventMutationResponse) ProtoMessage() {}
+
+func (x *SourcedEventMutationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourcedEventMutationResponse.ProtoReflect.Descriptor instead.
+func (*SourcedEventMutationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SourcedEventMutationResponse) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *SourcedEventMutationResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type RenameSourcedEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	NewName       string                 `protobuf:"bytes,2,opt,name=new_name,json=newName,proto3" json:"new_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameSourcedEventRequest) Reset() {
+	*x = RenameSourcedEventRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameSourcedEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameSourcedEventRequest) ProtoMessage() {}
+
+func (x *RenameSourcedEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameSourcedEventRequest.ProtoReflect.Descriptor instead.
+func (*RenameSourcedEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *RenameSourcedEventRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *RenameSourcedEventRequest) GetNewName() string {
+	if x != nil {
+		return x.NewName
+	}
+	return ""
+}
+
+type RescheduleSourcedEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	NewDateTime   *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=new_date_time,json=newDateTime,proto3" json:"new_date_time,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RescheduleSourcedEventRequest) Reset() {
+	*x = RescheduleSourcedEventRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RescheduleSourcedEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RescheduleSourcedEventRequest) ProtoMessage() {}
+
+func (x *RescheduleSourcedEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RescheduleSourcedEventRequest.ProtoReflect.Descriptor instead.
+func (*RescheduleSourcedEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *RescheduleSourcedEventRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *RescheduleSourcedEventRequest) GetNewDateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.NewDateTime
+	}
+	return nil
+}
+
+type RelocateSourcedEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	NewLocationId int64                  `protobuf:"varint,2,opt,name=new_location_id,json=newLocationId,proto3" json:"new_location_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelocateSourcedEventRequest) Reset() {
+	*x = RelocateSourcedEventRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelocateSourcedEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelocateSourcedEventRequest) ProtoMessage() {}
+
+func (x *RelocateSourcedEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelocateSourcedEventRequest.ProtoReflect.Descriptor instead.
+func (*RelocateSourcedEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RelocateSourcedEventRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *RelocateSourcedEventRequest) GetNewLocationId() int64 {
+	if x != nil {
+		return x.NewLocationId
+	}
+	return 0
+}
+
+type ChangeSourcedEventPriceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	NewPrice      float64                `protobuf:"fixed64,2,opt,name=new_price,json=newPrice,proto3" json:"new_price,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChangeSourcedEventPriceRequest) Reset() {
+	*x = ChangeSourcedEventPriceRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChangeSourcedEventPriceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChangeSourcedEventPriceRequest) ProtoMessage() {}
+
+func (x *ChangeSourcedEventPriceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChangeSourcedEventPriceRequest.ProtoReflect.Descriptor instead.
+func (*ChangeSourcedEventPriceRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *ChangeSourcedEventPriceRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *ChangeSourcedEventPriceRequest) GetNewPrice() float64 {
+	if x != nil {
+		return x.NewPrice
+	}
+	return 0
+}
+
+type CancelSourcedEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelSourcedEventRequest) Reset() {
+	*x = CancelSourcedEventRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelSourcedEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelSourcedEventRequest) ProtoMessage() {}
+
+func (x *CancelSourcedEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelSourcedEventRequest.ProtoReflect.Descriptor instead.
+func (*CancelSourcedEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CancelSourcedEventRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *CancelSourcedEventRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type GetSourcedEventStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSourcedEventStateRequest) Reset() {
+	*x = GetSourcedEventStateRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSourcedEventStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSourcedEventStateRequest) ProtoMessage() {}
+
+func (x *GetSourcedEventStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSourcedEventStateRequest.ProtoReflect.Descriptor instead.
+func (*GetSourcedEventStateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetSourcedEventStateRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+type GetSourcedEventStateResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId     string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	Version         int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	CotisationPrice float64                `protobuf:"fixed64,4,opt,name=cotisation_price,json=cotisationPrice,proto3" json:"cotisation_price,omitempty"`
+	Agenda          string                 `protobuf:"bytes,5,opt,name=agenda,proto3" json:"agenda,omitempty"`
+	Type            string                 `protobuf:"bytes,6,opt,name=type,proto3" json:"type,omitempty"`
+	DateTime        *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=date_time,json=dateTime,proto3" json:"date_time,omitempty"`
+	LocationId      int64                  `protobuf:"varint,8,opt,name=location_id,json=locationId,proto3" json:"location_id,omitempty"`
+	Cancelled       bool                   `protobuf:"varint,9,opt,name=cancelled,proto3" json:"cancelled,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetSourcedEventStateResponse) Reset() {
+	*x = GetSourcedEventStateResponse{}
+	mi := &file_proto_event_event_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSourcedEventStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSourcedEventStateResponse) ProtoMessage() {}
+
+func (x *GetSourcedEventStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSourcedEventStateResponse.ProtoReflect.Descriptor instead.
+func (*GetSourcedEventStateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *GetSourcedEventStateResponse) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *GetSourcedEventStateResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *GetSourcedEventStateResponse) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *GetSourcedEventStateResponse) GetCotisationPrice() float64 {
+	if x != nil {
+		return x.CotisationPrice
+	}
+	return 0
+}
+
+func (x *GetSourcedEventStateResponse) GetAgenda() string {
+	if x != nil {
+		return x.Agenda
+	}
+	return ""
+}
+
+func (x *GetSourcedEventStateResponse) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *GetSourcedEventStateResponse) GetDateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DateTime
+	}
+	return nil
+}
+
+func (x *GetSourcedEventStateResponse) GetLocationId() int64 {
+	if x != nil {
+		return x.LocationId
+	}
+	return 0
+}
+
+func (x *GetSourcedEventStateResponse) GetCancelled() bool {
+	if x != nil {
+		return x.Cancelled
+	}
+	return false
+}
+
+type GetSourcedEventHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSourcedEventHistoryRequest) Reset() {
+	*x = GetSourcedEventHistoryRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSourcedEventHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSourcedEventHistoryRequest) ProtoMessage() {}
+
+func (x *GetSourcedEventHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSourcedEventHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetSourcedEventHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *GetSourcedEventHistoryRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+type GetSourcedEventHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Events        []*SourcedEvent        `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSourcedEventHistoryResponse) Reset() {
+	*x = GetSourcedEventHistoryResponse{}
+	mi := &file_proto_event_event_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSourcedEventHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSourcedEventHistoryResponse) ProtoMessage() {}
+
+func (x *GetSourcedEventHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSourcedEventHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetSourcedEventHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *GetSourcedEventHistoryResponse) GetEvents() []*SourcedEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+type CreateSourcedEventSnapshotRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSourcedEventSnapshotRequest) Reset() {
+	*x = CreateSourcedEventSnapshotRequest{}
+	mi := &file_proto_event_event_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSourcedEventSnapshotRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSourcedEventSnapshotRequest) ProtoMessage() {}
+
+func (x *CreateSourcedEventSnapshotRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSourcedEventSnapshotRequest.ProtoReflect.Descriptor instead.
+func (*CreateSourcedEventSnapshotRequest) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *CreateSourcedEventSnapshotRequest) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+type CreateSourcedEventSnapshotResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AggregateId   string                 `protobuf:"bytes,1,opt,name=aggregate_id,json=aggregateId,proto3" json:"aggregate_id,omitempty"`
+	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSourcedEventSnapshotResponse) Reset() {
+	*x = CreateSourcedEventSnapshotResponse{}
+	mi := &file_proto_event_event_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSourcedEventSnapshotResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSourcedEventSnapshotResponse) ProtoMessage() {}
+
+func (x *CreateSourcedEventSnapshotResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_event_event_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSourcedEventSnapshotResponse.ProtoReflect.Descriptor instead.
+func (*CreateSourcedEventSnapshotResponse) Descriptor() ([]byte, []int) {
+	return file_proto_event_event_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *CreateSourcedEventSnapshotResponse) GetAggregateId() string {
+	if x != nil {
+		return x.AggregateId
+	}
+	return ""
+}
+
+func (x *CreateSourcedEventSnapshotResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
 var File_proto_event_event_proto protoreflect.FileDescriptor
 
 const file_proto_event_event_proto_rawDesc = "" +
@@ -1189,7 +2005,64 @@ const file_proto_event_event_proto_rawDesc = "" +
 	"totalCount\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12\"\n" +
-	"\rhas_next_page\x18\x05 \x01(\bR\vhasNextPage2\xa4\x04\n" +
+	"\rhas_next_page\x18\x05 \x01(\bR\vhasNextPage\"\xdc\x01\n" +
+	"\fSourcedEvent\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12!\n" +
+	"\faggregate_id\x18\x02 \x01(\tR\vaggregateId\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\x03R\aversion\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x04 \x01(\tR\teventType\x12;\n" +
+	"\voccurred_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"occurredAt\x12\x18\n" +
+	"\adetails\x18\x06 \x01(\tR\adetails\"\xe0\x01\n" +
+	"\x19CreateSourcedEventRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12)\n" +
+	"\x10cotisation_price\x18\x02 \x01(\x01R\x0fcotisationPrice\x12\x16\n" +
+	"\x06agenda\x18\x03 \x01(\tR\x06agenda\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x127\n" +
+	"\tdate_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\bdateTime\x12\x1f\n" +
+	"\vlocation_id\x18\x06 \x01(\x03R\n" +
+	"locationId\"[\n" +
+	"\x1cSourcedEventMutationResponse\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion\"Y\n" +
+	"\x19RenameSourcedEventRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x19\n" +
+	"\bnew_name\x18\x02 \x01(\tR\anewName\"\x82\x01\n" +
+	"\x1dRescheduleSourcedEventRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12>\n" +
+	"\rnew_date_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vnewDateTime\"h\n" +
+	"\x1bRelocateSourcedEventRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12&\n" +
+	"\x0fnew_location_id\x18\x02 \x01(\x03R\rnewLocationId\"`\n" +
+	"\x1eChangeSourcedEventPriceRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x1b\n" +
+	"\tnew_price\x18\x02 \x01(\x01R\bnewPrice\"V\n" +
+	"\x19CancelSourcedEventRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"@\n" +
+	"\x1bGetSourcedEventStateRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\"\xbe\x02\n" +
+	"\x1cGetSourcedEventStateResponse\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12)\n" +
+	"\x10cotisation_price\x18\x04 \x01(\x01R\x0fcotisationPrice\x12\x16\n" +
+	"\x06agenda\x18\x05 \x01(\tR\x06agenda\x12\x12\n" +
+	"\x04type\x18\x06 \x01(\tR\x04type\x127\n" +
+	"\tdate_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\bdateTime\x12\x1f\n" +
+	"\vlocation_id\x18\b \x01(\x03R\n" +
+	"locationId\x12\x1c\n" +
+	"\tcancelled\x18\t \x01(\bR\tcancelled\"B\n" +
+	"\x1dGetSourcedEventHistoryRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\"M\n" +
+	"\x1eGetSourcedEventHistoryResponse\x12+\n" +
+	"\x06events\x18\x01 \x03(\v2\x13.event.SourcedEventR\x06events\"F\n" +
+	"!CreateSourcedEventSnapshotRequest\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\"a\n" +
+	"\"CreateSourcedEventSnapshotResponse\x12!\n" +
+	"\faggregate_id\x18\x01 \x01(\tR\vaggregateId\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion2\xa4\x04\n" +
 	"\fEventService\x12F\n" +
 	"\vCreateEvent\x12\x19.event.CreateEventRequest\x1a\x1a.event.CreateEventResponse\"\x00\x12B\n" +
 	"\vUpdateEvent\x12\x19.event.UpdateEventRequest\x1a\x16.google.protobuf.Empty\"\x00\x12F\n" +
@@ -1198,7 +2071,17 @@ const file_proto_event_event_proto_rawDesc = "" +
 	"\x0eGetEventByName\x12\x1c.event.GetEventByNameRequest\x1a\".event.GetEventByNameQueryResponse\"\x00\x12C\n" +
 	"\n" +
 	"ListEvents\x12\x18.event.ListEventsRequest\x1a\x19.event.ListEventsResponse\"\x00\x12U\n" +
-	"\x10ListEventsByType\x12\x1e.event.ListEventsByTypeRequest\x1a\x1f.event.ListEventsByTypeResponse\"\x00BJZHgithub.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/eventb\x06proto3"
+	"\x10ListEventsByType\x12\x1e.event.ListEventsByTypeRequest\x1a\x1f.event.ListEventsByTypeResponse\"\x002\xa7\a\n" +
+	"\x14EventSourcingService\x12]\n" +
+	"\x12CreateSourcedEvent\x12 .event.CreateSourcedEventRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12]\n" +
+	"\x12RenameSourcedEvent\x12 .event.RenameSourcedEventRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12e\n" +
+	"\x16RescheduleSourcedEvent\x12$.event.RescheduleSourcedEventRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12a\n" +
+	"\x14RelocateSourcedEvent\x12\".event.RelocateSourcedEventRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12g\n" +
+	"\x17ChangeSourcedEventPrice\x12%.event.ChangeSourcedEventPriceRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12]\n" +
+	"\x12CancelSourcedEvent\x12 .event.CancelSourcedEventRequest\x1a#.event.SourcedEventMutationResponse\"\x00\x12a\n" +
+	"\x14GetSourcedEventState\x12\".event.GetSourcedEventStateRequest\x1a#.event.GetSourcedEventStateResponse\"\x00\x12g\n" +
+	"\x16GetSourcedEventHistory\x12$.event.GetSourcedEventHistoryRequest\x1a%.event.GetSourcedEventHistoryResponse\"\x00\x12s\n" +
+	"\x1aCreateSourcedEventSnapshot\x12(.event.CreateSourcedEventSnapshotRequest\x1a).event.CreateSourcedEventSnapshotResponse\"\x00BJZHgithub.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/eventb\x06proto3"
 
 var (
 	file_proto_event_event_proto_rawDescOnce sync.Once
@@ -1212,64 +2095,101 @@ func file_proto_event_event_proto_rawDescGZIP() []byte {
 	return file_proto_event_event_proto_rawDescData
 }
 
-var file_proto_event_event_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_proto_event_event_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
 var file_proto_event_event_proto_goTypes = []any{
-	(*Event)(nil),                       // 0: event.Event
-	(*CreateEventRequest)(nil),          // 1: event.CreateEventRequest
-	(*CreateEventResponse)(nil),         // 2: event.CreateEventResponse
-	(*GetEventByIdRequest)(nil),         // 3: event.GetEventByIdRequest
-	(*UpdateEventRequest)(nil),          // 4: event.UpdateEventRequest
-	(*DeleteEventRequest)(nil),          // 5: event.DeleteEventRequest
-	(*DeleteEventResponse)(nil),         // 6: event.DeleteEventResponse
-	(*GetEventByIDResponse)(nil),        // 7: event.GetEventByIDResponse
-	(*GetEventByNameRequest)(nil),       // 8: event.GetEventByNameRequest
-	(*GetEventByNameResponse)(nil),      // 9: event.GetEventByNameResponse
-	(*EventWithLocation)(nil),           // 10: event.EventWithLocation
-	(*GetEventByIdQueryResponse)(nil),   // 11: event.GetEventByIdQueryResponse
-	(*GetEventByNameQueryResponse)(nil), // 12: event.GetEventByNameQueryResponse
-	(*ListEventsRequest)(nil),           // 13: event.ListEventsRequest
-	(*ListEventsResponse)(nil),          // 14: event.ListEventsResponse
-	(*ListEventsByTypeRequest)(nil),     // 15: event.ListEventsByTypeRequest
-	(*ListEventsByTypeResponse)(nil),    // 16: event.ListEventsByTypeResponse
-	(*timestamppb.Timestamp)(nil),       // 17: google.protobuf.Timestamp
-	(*location.Location)(nil),           // 18: location.Location
-	(*emptypb.Empty)(nil),               // 19: google.protobuf.Empty
+	(*Event)(nil),                              // 0: event.Event
+	(*CreateEventRequest)(nil),                 // 1: event.CreateEventRequest
+	(*CreateEventResponse)(nil),                // 2: event.CreateEventResponse
+	(*GetEventByIdRequest)(nil),                // 3: event.GetEventByIdRequest
+	(*UpdateEventRequest)(nil),                 // 4: event.UpdateEventRequest
+	(*DeleteEventRequest)(nil),                 // 5: event.DeleteEventRequest
+	(*DeleteEventResponse)(nil),                // 6: event.DeleteEventResponse
+	(*GetEventByIDResponse)(nil),               // 7: event.GetEventByIDResponse
+	(*GetEventByNameRequest)(nil),              // 8: event.GetEventByNameRequest
+	(*GetEventByNameResponse)(nil),             // 9: event.GetEventByNameResponse
+	(*EventWithLocation)(nil),                  // 10: event.EventWithLocation
+	(*GetEventByIdQueryResponse)(nil),          // 11: event.GetEventByIdQueryResponse
+	(*GetEventByNameQueryResponse)(nil),        // 12: event.GetEventByNameQueryResponse
+	(*ListEventsRequest)(nil),                  // 13: event.ListEventsRequest
+	(*ListEventsResponse)(nil),                 // 14: event.ListEventsResponse
+	(*ListEventsByTypeRequest)(nil),            // 15: event.ListEventsByTypeRequest
+	(*ListEventsByTypeResponse)(nil),           // 16: event.ListEventsByTypeResponse
+	(*SourcedEvent)(nil),                       // 17: event.SourcedEvent
+	(*CreateSourcedEventRequest)(nil),          // 18: event.CreateSourcedEventRequest
+	(*SourcedEventMutationResponse)(nil),       // 19: event.SourcedEventMutationResponse
+	(*RenameSourcedEventRequest)(nil),          // 20: event.RenameSourcedEventRequest
+	(*RescheduleSourcedEventRequest)(nil),      // 21: event.RescheduleSourcedEventRequest
+	(*RelocateSourcedEventRequest)(nil),        // 22: event.RelocateSourcedEventRequest
+	(*ChangeSourcedEventPriceRequest)(nil),     // 23: event.ChangeSourcedEventPriceRequest
+	(*CancelSourcedEventRequest)(nil),          // 24: event.CancelSourcedEventRequest
+	(*GetSourcedEventStateRequest)(nil),        // 25: event.GetSourcedEventStateRequest
+	(*GetSourcedEventStateResponse)(nil),       // 26: event.GetSourcedEventStateResponse
+	(*GetSourcedEventHistoryRequest)(nil),      // 27: event.GetSourcedEventHistoryRequest
+	(*GetSourcedEventHistoryResponse)(nil),     // 28: event.GetSourcedEventHistoryResponse
+	(*CreateSourcedEventSnapshotRequest)(nil),  // 29: event.CreateSourcedEventSnapshotRequest
+	(*CreateSourcedEventSnapshotResponse)(nil), // 30: event.CreateSourcedEventSnapshotResponse
+	(*timestamppb.Timestamp)(nil),              // 31: google.protobuf.Timestamp
+	(*location.Location)(nil),                  // 32: location.Location
+	(*emptypb.Empty)(nil),                      // 33: google.protobuf.Empty
 }
 var file_proto_event_event_proto_depIdxs = []int32{
-	17, // 0: event.Event.date_time:type_name -> google.protobuf.Timestamp
-	18, // 1: event.Event.location:type_name -> location.Location
-	17, // 2: event.CreateEventRequest.date_time:type_name -> google.protobuf.Timestamp
+	31, // 0: event.Event.date_time:type_name -> google.protobuf.Timestamp
+	32, // 1: event.Event.location:type_name -> location.Location
+	31, // 2: event.CreateEventRequest.date_time:type_name -> google.protobuf.Timestamp
 	0,  // 3: event.CreateEventResponse.event:type_name -> event.Event
-	17, // 4: event.UpdateEventRequest.date_time:type_name -> google.protobuf.Timestamp
+	31, // 4: event.UpdateEventRequest.date_time:type_name -> google.protobuf.Timestamp
 	0,  // 5: event.DeleteEventResponse.event:type_name -> event.Event
 	0,  // 6: event.GetEventByIDResponse.event:type_name -> event.Event
 	0,  // 7: event.GetEventByNameResponse.event:type_name -> event.Event
-	17, // 8: event.EventWithLocation.event_date_time:type_name -> google.protobuf.Timestamp
+	31, // 8: event.EventWithLocation.event_date_time:type_name -> google.protobuf.Timestamp
 	10, // 9: event.GetEventByIdQueryResponse.eventWithLocation:type_name -> event.EventWithLocation
 	10, // 10: event.GetEventByNameQueryResponse.eventWithLocation:type_name -> event.EventWithLocation
-	17, // 11: event.ListEventsRequest.from_date:type_name -> google.protobuf.Timestamp
-	17, // 12: event.ListEventsRequest.to_date:type_name -> google.protobuf.Timestamp
+	31, // 11: event.ListEventsRequest.from_date:type_name -> google.protobuf.Timestamp
+	31, // 12: event.ListEventsRequest.to_date:type_name -> google.protobuf.Timestamp
 	10, // 13: event.ListEventsResponse.events:type_name -> event.EventWithLocation
 	10, // 14: event.ListEventsByTypeResponse.events:type_name -> event.EventWithLocation
-	1,  // 15: event.EventService.CreateEvent:input_type -> event.CreateEventRequest
-	4,  // 16: event.EventService.UpdateEvent:input_type -> event.UpdateEventRequest
-	5,  // 17: event.EventService.DeleteEvent:input_type -> event.DeleteEventRequest
-	3,  // 18: event.EventService.GetEventByID:input_type -> event.GetEventByIdRequest
-	8,  // 19: event.EventService.GetEventByName:input_type -> event.GetEventByNameRequest
-	13, // 20: event.EventService.ListEvents:input_type -> event.ListEventsRequest
-	15, // 21: event.EventService.ListEventsByType:input_type -> event.ListEventsByTypeRequest
-	2,  // 22: event.EventService.CreateEvent:output_type -> event.CreateEventResponse
-	19, // 23: event.EventService.UpdateEvent:output_type -> google.protobuf.Empty
-	6,  // 24: event.EventService.DeleteEvent:output_type -> event.DeleteEventResponse
-	11, // 25: event.EventService.GetEventByID:output_type -> event.GetEventByIdQueryResponse
-	12, // 26: event.EventService.GetEventByName:output_type -> event.GetEventByNameQueryResponse
-	14, // 27: event.EventService.ListEvents:output_type -> event.ListEventsResponse
-	16, // 28: event.EventService.ListEventsByType:output_type -> event.ListEventsByTypeResponse
-	22, // [22:29] is the sub-list for method output_type
-	15, // [15:22] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	31, // 15: event.SourcedEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	31, // 16: event.CreateSourcedEventRequest.date_time:type_name -> google.protobuf.Timestamp
+	31, // 17: event.RescheduleSourcedEventRequest.new_date_time:type_name -> google.protobuf.Timestamp
+	31, // 18: event.GetSourcedEventStateResponse.date_time:type_name -> google.protobuf.Timestamp
+	17, // 19: event.GetSourcedEventHistoryResponse.events:type_name -> event.SourcedEvent
+	1,  // 20: event.EventService.CreateEvent:input_type -> event.CreateEventRequest
+	4,  // 21: event.EventService.UpdateEvent:input_type -> event.UpdateEventRequest
+	5,  // 22: event.EventService.DeleteEvent:input_type -> event.DeleteEventRequest
+	3,  // 23: event.EventService.GetEventByID:input_type -> event.GetEventByIdRequest
+	8,  // 24: event.EventService.GetEventByName:input_type -> event.GetEventByNameRequest
+	13, // 25: event.EventService.ListEvents:input_type -> event.ListEventsRequest
+	15, // 26: event.EventService.ListEventsByType:input_type -> event.ListEventsByTypeRequest
+	18, // 27: event.EventSourcingService.CreateSourcedEvent:input_type -> event.CreateSourcedEventRequest
+	20, // 28: event.EventSourcingService.RenameSourcedEvent:input_type -> event.RenameSourcedEventRequest
+	21, // 29: event.EventSourcingService.RescheduleSourcedEvent:input_type -> event.RescheduleSourcedEventRequest
+	22, // 30: event.EventSourcingService.RelocateSourcedEvent:input_type -> event.RelocateSourcedEventRequest
+	23, // 31: event.EventSourcingService.ChangeSourcedEventPrice:input_type -> event.ChangeSourcedEventPriceRequest
+	24, // 32: event.EventSourcingService.CancelSourcedEvent:input_type -> event.CancelSourcedEventRequest
+	25, // 33: event.EventSourcingService.GetSourcedEventState:input_type -> event.GetSourcedEventStateRequest
+	27, // 34: event.EventSourcingService.GetSourcedEventHistory:input_type -> event.GetSourcedEventHistoryRequest
+	29, // 35: event.EventSourcingService.CreateSourcedEventSnapshot:input_type -> event.CreateSourcedEventSnapshotRequest
+	2,  // 36: event.EventService.CreateEvent:output_type -> event.CreateEventResponse
+	33, // 37: event.EventService.UpdateEvent:output_type -> google.protobuf.Empty
+	6,  // 38: event.EventService.DeleteEvent:output_type -> event.DeleteEventResponse
+	11, // 39: event.EventService.GetEventByID:output_type -> event.GetEventByIdQueryResponse
+	12, // 40: event.EventService.GetEventByName:output_type -> event.GetEventByNameQueryResponse
+	14, // 41: event.EventService.ListEvents:output_type -> event.ListEventsResponse
+	16, // 42: event.EventService.ListEventsByType:output_type -> event.ListEventsByTypeResponse
+	19, // 43: event.EventSourcingService.CreateSourcedEvent:output_type -> event.SourcedEventMutationResponse
+	19, // 44: event.EventSourcingService.RenameSourcedEvent:output_type -> event.SourcedEventMutationResponse
+	19, // 45: event.EventSourcingService.RescheduleSourcedEvent:output_type -> event.SourcedEventMutationResponse
+	19, // 46: event.EventSourcingService.RelocateSourcedEvent:output_type -> event.SourcedEventMutationResponse
+	19, // 47: event.EventSourcingService.ChangeSourcedEventPrice:output_type -> event.SourcedEventMutationResponse
+	19, // 48: event.EventSourcingService.CancelSourcedEvent:output_type -> event.SourcedEventMutationResponse
+	26, // 49: event.EventSourcingService.GetSourcedEventState:output_type -> event.GetSourcedEventStateResponse
+	28, // 50: event.EventSourcingService.GetSourcedEventHistory:output_type -> event.GetSourcedEventHistoryResponse
+	30, // 51: event.EventSourcingService.CreateSourcedEventSnapshot:output_type -> event.CreateSourcedEventSnapshotResponse
+	36, // [36:52] is the sub-list for method output_type
+	20, // [20:36] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_proto_event_event_proto_init() }
@@ -1283,9 +2203,9 @@ func file_proto_event_event_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_event_event_proto_rawDesc), len(file_proto_event_event_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   31,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   2,
 		},
 		GoTypes:           file_proto_event_event_proto_goTypes,
 		DependencyIndexes: file_proto_event_event_proto_depIdxs,

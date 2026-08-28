@@ -1,0 +1,298 @@
+[
+  {
+    "id": "lecturer-create",
+    "uri": "/api/lecturers",
+    "service": "lecturer.LecturerService",
+    "method": "CreateLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-get-by-id",
+    "uri": "/api/lecturers/get-by-id",
+    "service": "lecturer.LecturerService",
+    "method": "GetLecturerByID",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-get-by-name",
+    "uri": "/api/lecturers/get-by-name",
+    "service": "lecturer.LecturerService",
+    "method": "GetLecturerByName",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-list",
+    "uri": "/api/lecturers/list",
+    "service": "lecturer.LecturerService",
+    "method": "ListLecturers",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-list-by-field",
+    "uri": "/api/lecturers/list-by-field",
+    "service": "lecturer.LecturerService",
+    "method": "ListLecturersByFieldOfExpertise",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-update",
+    "uri": "/api/lecturers/update",
+    "service": "lecturer.LecturerService",
+    "method": "UpdateLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "lecturer-delete",
+    "uri": "/api/lecturers/delete",
+    "service": "lecturer.LecturerService",
+    "method": "DeleteLecturer",
+    "proto": "lecturer-proto",
+    "upstream": "lecturer-service:50051"
+  },
+  {
+    "id": "event-create",
+    "uri": "/api/events",
+    "service": "event.EventService",
+    "method": "CreateEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-update",
+    "uri": "/api/events/update",
+    "service": "event.EventService",
+    "method": "UpdateEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-delete",
+    "uri": "/api/events/delete",
+    "service": "event.EventService",
+    "method": "DeleteEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "event-get-by-id",
+    "uri": "/api/events/get-by-id",
+    "service": "event.EventService",
+    "method": "GetEventByID",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "event-get-by-name",
+    "uri": "/api/events/get-by-name",
+    "service": "event.EventService",
+    "method": "GetEventByName",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "event-list",
+    "uri": "/api/events/list",
+    "service": "event.EventService",
+    "method": "ListEvents",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "event-list-by-type",
+    "uri": "/api/events/list-by-type",
+    "service": "event.EventService",
+    "method": "ListEventsByType",
+    "proto": "event-proto",
+    "upstream": "event-query-service:50053"
+  },
+  {
+    "id": "location-create",
+    "uri": "/api/locations",
+    "service": "location.LocationService",
+    "method": "CreateLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-update",
+    "uri": "/api/locations/update",
+    "service": "location.LocationService",
+    "method": "UpdateLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-delete",
+    "uri": "/api/locations/delete",
+    "service": "location.LocationService",
+    "method": "DeleteLocation",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-get-by-id",
+    "uri": "/api/locations/get-by-id",
+    "service": "location.LocationService",
+    "method": "GetLocationByID",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-get-by-name",
+    "uri": "/api/locations/get-by-name",
+    "service": "location.LocationService",
+    "method": "GetLocationByName",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-list",
+    "uri": "/api/locations/list",
+    "service": "location.LocationService",
+    "method": "ListLocations",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "location-list-min-cap",
+    "uri": "/api/locations/list-by-min-capacity",
+    "service": "location.LocationService",
+    "method": "ListLocationsByMinCapacity",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "lecture-create",
+    "uri": "/api/lectures",
+    "service": "lecture.LectureService",
+    "method": "CreateLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-update",
+    "uri": "/api/lectures/update",
+    "service": "lecture.LectureService",
+    "method": "UpdateLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-delete",
+    "uri": "/api/lectures/delete",
+    "service": "lecture.LectureService",
+    "method": "DeleteLecture",
+    "proto": "lecture-proto",
+    "upstream": "lecture-service:50054"
+  },
+  {
+    "id": "lecture-get-by-id",
+    "uri": "/api/lectures/get-by-id",
+    "service": "lecture.LectureService",
+    "method": "GetLectureByID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-get-by-name",
+    "uri": "/api/lectures/get-by-name",
+    "service": "lecture.LectureService",
+    "method": "GetLectureByName",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-list-by-event",
+    "uri": "/api/lectures/list-by-event",
+    "service": "lecture.LectureService",
+    "method": "ListLecturesByEventID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "lecture-list-by-lecturer",
+    "uri": "/api/lectures/list-by-lecturer",
+    "service": "lecture.LectureService",
+    "method": "ListLecturesByLecturerID",
+    "proto": "lecture-proto",
+    "upstream": "lecture-query-service:50055"
+  },
+  {
+    "id": "sourced-event-create",
+    "uri": "/api/sourced-events",
+    "service": "event.EventSourcingService",
+    "method": "CreateSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-rename",
+    "uri": "/api/sourced-events/rename",
+    "service": "event.EventSourcingService",
+    "method": "RenameSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-reschedule",
+    "uri": "/api/sourced-events/reschedule",
+    "service": "event.EventSourcingService",
+    "method": "RescheduleSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-relocate",
+    "uri": "/api/sourced-events/relocate",
+    "service": "event.EventSourcingService",
+    "method": "RelocateSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-change-price",
+    "uri": "/api/sourced-events/change-price",
+    "service": "event.EventSourcingService",
+    "method": "ChangeSourcedEventPrice",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-cancel",
+    "uri": "/api/sourced-events/cancel",
+    "service": "event.EventSourcingService",
+    "method": "CancelSourcedEvent",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-get-state",
+    "uri": "/api/sourced-events/get-state",
+    "service": "event.EventSourcingService",
+    "method": "GetSourcedEventState",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-get-history",
+    "uri": "/api/sourced-events/get-history",
+    "service": "event.EventSourcingService",
+    "method": "GetSourcedEventHistory",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  },
+  {
+    "id": "sourced-event-create-snapshot",
+    "uri": "/api/sourced-events/create-snapshot",
+    "service": "event.EventSourcingService",
+    "method": "CreateSourcedEventSnapshot",
+    "proto": "event-proto",
+    "upstream": "event-service:50052"
+  }
+]

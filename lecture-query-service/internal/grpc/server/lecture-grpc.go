@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/cqrs/query"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
@@ -10,13 +11,11 @@ import (
 	lecturepb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"gorm.io/gorm"
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	getLectureByIDHandler           *query.GetLectureByIDHandler
 	getLectureByNameHandler         *query.GetLectureByNameHandler
 	listLecturesByEventIDHandler    *query.ListLecturesByEventIDHandler
@@ -25,12 +24,8 @@ type GrpcServer struct {
 	lecturepb.UnimplementedLectureServiceServer
 }
 
-func NewGrpcServer(db *gorm.DB) *GrpcServer {
-	lectureRepo := repo.NewLectureQueryRepo(db)
-
+func NewGrpcServer(lectureRepo repo.ILectureQueryRepo) *GrpcServer {
 	return &GrpcServer{
-		db: db,
-
 		getLectureByIDHandler:           query.NewGetLectureByIDHandler(lectureRepo),
 		getLectureByNameHandler:         query.NewGetLectureByNameHandler(lectureRepo),
 		listLecturesByEventIDHandler:    query.NewListLecturesByEventIDHandler(lectureRepo),
@@ -136,5 +131,7 @@ func lectureQueryToProto(l *model.LectureQuery) *lecturepb.LectureQuery {
 		LocationName:             l.LocationName,
 		LocationAddress:          l.LocationAddress,
 		LocationCapacity:         l.LocationCapacity,
+		LectureName:              l.Name,
+		LectureDuration:          durationpb.New(time.Duration(l.Duration) * time.Second),
 	}
 }

@@ -47,3 +47,6 @@ lecture-query-service/cmd/server/**
 # Editor/IDE
 .idea/
 .vscode/
+
+api-gateway/apisix/logs/*
+!api-gateway/apisix/logs/.gitkeep

@@ -26,6 +26,10 @@ type IEventCommandRepo interface {
 	WithTx(db *gorm.DB) *EventRepo
 }
 
+type IEventReadRepo interface {
+	GetEventByID(ctx context.Context, id int64) (*model.Event, error)
+}
+
 type EventRepo struct {
 	db *gorm.DB
 }
@@ -49,6 +53,11 @@ func (r *EventRepo) UpdateEvent(ctx context.Context, event *model.Event) error {
 	return r.db.WithContext(ctx).Save(event).Error
 }
 
+func (r *EventRepo) UpsertEvent(ctx context.Context, event *model.Event) error {
+	event.Location = nil
+	return r.db.WithContext(ctx).Save(event).Error
+}
+
 func (r *EventRepo) DeleteEvent(ctx context.Context, id int64) error {
 	res := r.db.WithContext(ctx).Delete(&model.Event{}, id)
 	if res.Error != nil {
@@ -60,9 +69,14 @@ func (r *EventRepo) DeleteEvent(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (r *EventRepo) RemoveEvent(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.Event{}, id).Error
+}
+
 func (r *EventRepo) GetEventByID(ctx context.Context, id int64) (*model.Event, error) {
 	var event model.Event
 	result := r.db.WithContext(ctx).
+		Preload("Location").
 		First(&event, id)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, nil

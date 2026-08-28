@@ -1,51 +1,242 @@
 {
   "rabbit_version": "4.3.4",
   "users": [
-    { "name": "admin", "password": "pass1234", "tags": ["administrator"] }
+    {
+      "name": "admin",
+      "password": "pass1234",
+      "tags": [
+        "administrator"
+      ]
+    }
   ],
   "vhosts": [
-    { "name": "/" }
+    {
+      "name": "/"
+    }
   ],
   "permissions": [
-    { "user": "admin", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" }
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
   ],
   "exchanges": [
-    { "name": "lecturer.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
-  ],
-  "queues": [
-    { "name": "lecturer","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
-    { "name": "lecturer.retry","vhost":  "/", "durable":  true, "auto_delete":  false, "arguments": {} },
-    { "name": "lecturer.final-dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
-    { "name": "mail", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
-    { "name": "event-query", "vhost":  "/", "durable":  true, "auto_delete":  false, "arguments":  {}},
-    { "name":  "lecturer-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-
-    { "name": "event-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-    { "name": "reply-to-event", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-
-    { "name": "lecturer-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-    { "name": "lecture-query", "vhost":  "/", "durable":  true, "auto_delete": false, "arguments":  {}},
-    { "name": "reply-to-lecturer", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}},
-    { "name": "reply-to-lecture", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {}}
-  ],
-  "bindings": [
     {
-      "source": "lecturer.dlx",
+      "name": "dlx",
       "vhost": "/",
-      "destination": "lecturer.final-dlq",
-      "destination_type": "queue",
-      "routing_key": "",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
       "arguments": {}
     }
   ],
-  "policies": [
+  "queues": [
     {
-      "name": "DLX",
+      "name": "event-query",
       "vhost": "/",
-      "pattern": "^lecturer\\.main$",
-      "apply-to": "queues",
-      "definition": { "dead-letter-exchange": "lecturer.dlx" },
-      "priority": 0
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "event-query-dlx"
+      }
+    },
+    {
+      "name": "event-lecture",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "lecture-dlx"
+      }
+    },
+    {
+      "name": "lecturer-lecture",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "lecture-dlx"
+      }
+    },
+    {
+      "name": "lecture-query",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "lecture-query-dlx"
+      }
+    },
+    {
+      "name": "reply-to-event",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "event-dlx"
+      }
+    },
+    {
+      "name": "reply-to-lecturer",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "lecturer-dlx"
+      }
+    },
+    {
+      "name": "reply-to-lecture",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "lecture-dlx"
+      }
+    },
+    {
+      "name": "saga-reply-event",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "event-dlx"
+      }
+    },
+    {
+      "name": "mail.send",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "dlx",
+        "x-dead-letter-routing-key": "mail.dlq"
+      }
+    },
+    {
+      "name": "event-dlx",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "event-query-dlx",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "lecturer-dlx",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "lecture-dlx",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "lecture-query-dlx",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    },
+    {
+      "name": "mail.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "event-dlx",
+      "destination_type": "queue",
+      "routing_key": "event-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "event-query-dlx",
+      "destination_type": "queue",
+      "routing_key": "event-query-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "lecturer-dlx",
+      "destination_type": "queue",
+      "routing_key": "lecturer-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "lecture-dlx",
+      "destination_type": "queue",
+      "routing_key": "lecture-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "lecture-query-dlx",
+      "destination_type": "queue",
+      "routing_key": "lecture-query-dlx",
+      "arguments": {}
+    },
+    {
+      "source": "dlx",
+      "vhost": "/",
+      "destination": "mail.dlq",
+      "destination_type": "queue",
+      "routing_key": "mail.dlq",
+      "arguments": {}
     }
   ]
 }

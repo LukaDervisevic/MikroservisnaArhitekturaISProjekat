@@ -15,7 +15,6 @@ WORKDIR /lecture-docker
 
 COPY --from=builder /lecture-docker/main .
 COPY --from=builder /lecture-docker/lecture-service/internal/migrations /lecture-docker/internal/migrations
-COPY --from=builder /lecture-docker/lecture-service/.env.docker /lecture-docker/lecture-service/.env.docker
 
 EXPOSE 50055
 

@@ -3,12 +3,14 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/mapper"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/model"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/mail"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
@@ -42,6 +44,7 @@ type CreateLectureHandler struct {
 	eventRepo     repo.IEventReadRepo
 	lecturerRepo  repo.ILecturerReadRepo
 	publisherConn *rabbitmq.PublisherConn
+	mailPublisher *rabbitmq.MailPublisher
 }
 
 func NewCreateLectureHandler(
@@ -49,13 +52,15 @@ func NewCreateLectureHandler(
 	lectureRepo repo.ILectureWriteRepo,
 	eventRepo repo.IEventReadRepo,
 	lecturerRepo repo.ILecturerReadRepo,
-	brokerConn *rabbitmq.PublisherConn) *CreateLectureHandler {
+	brokerConn *rabbitmq.PublisherConn,
+	mailPublisher *rabbitmq.MailPublisher) *CreateLectureHandler {
 	return &CreateLectureHandler{
 		db:            db,
 		lectureRepo:   lectureRepo,
 		eventRepo:     eventRepo,
 		lecturerRepo:  lecturerRepo,
-		publisherConn: brokerConn}
+		publisherConn: brokerConn,
+		mailPublisher: mailPublisher}
 }
 
 func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureCommand) (*model.Lecture, error) {
@@ -87,7 +92,7 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 	}
 
 	err = h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := h.lectureRepo.CreateLecture(ctx, lecture); err != nil {
+		if err := h.lectureRepo.WithTx(tx).CreateLecture(ctx, lecture); err != nil {
 			return status.Error(codes.Internal, "failed to create lecture")
 		}
 
@@ -101,7 +106,6 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			Body:          lectureQueryBytes,
 			Method:        "CreateLectureQuery",
 			TimeStamp:     time.Now(),
-			Retries:       0,
 		}
 		var payload []byte
 		payload, err = json.Marshal(msg)
@@ -110,11 +114,13 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 			return status.Error(codes.Internal, "failed to marshal payload")
 		}
 
-		err = h.publisherConn.Publish(ctx, payload, "RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE", true)
+		err = h.publisherConn.Publish(ctx, payload, os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE"), true)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to publish message with id %s", msg.IdempotentKey.String())
 			return status.Error(codes.Internal, "failed to publish message")
 		}
+
+		h.notifyLecturer(ctx, lecture)
 
 		return nil
 	})
@@ -123,4 +129,25 @@ func (h *CreateLectureHandler) Handle(ctx context.Context, cmd CreateLectureComm
 	}
 
 	return lecture, nil
+}
+
+func (h *CreateLectureHandler) notifyLecturer(ctx context.Context, lecture *model.Lecture) {
+	if h.mailPublisher == nil {
+		return
+	}
+	if lecture.Lecturer == nil || lecture.Lecturer.Email == "" {
+		log.Warn().
+			Int64("lecturer_id", lecture.LecturerID).
+			Int64("lecture_id", lecture.LectureID).
+			Msg("lecturer has no email address configured, skipping notification")
+		return
+	}
+
+	subject, body := mail.LectureCreated(lecture)
+	if err := h.mailPublisher.Enqueue(ctx, lecture.Lecturer.Email, subject, body); err != nil {
+		log.Error().Err(err).
+			Str("to", lecture.Lecturer.Email).
+			Int64("lecture_id", lecture.LectureID).
+			Msg("failed to enqueue lecture created notification")
+	}
 }

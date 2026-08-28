@@ -21,15 +21,16 @@ type CreateLecturerCommand struct {
 	FullName         string
 	Title            string
 	FieldOfExpertise string
+	Email            string
 }
 
 type CreateLecturerHandler struct {
 	db           *gorm.DB
-	lecturerRepo *repo.LecturerRepo
+	lecturerRepo repo.ILecturerCommandRepo
 	outboxRepo   *outbox.OutboxRepo
 }
 
-func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo *repo.LecturerRepo, outboxRepo *outbox.OutboxRepo) *CreateLecturerHandler {
+func NewCreateLecturerHandler(db *gorm.DB, lecturerRepo repo.ILecturerCommandRepo, outboxRepo *outbox.OutboxRepo) *CreateLecturerHandler {
 	return &CreateLecturerHandler{db: db, lecturerRepo: lecturerRepo, outboxRepo: outboxRepo}
 }
 
@@ -39,6 +40,7 @@ func (h *CreateLecturerHandler) Handle(ctx context.Context, cmd CreateLecturerCo
 		FullName:         cmd.FullName,
 		Title:            cmd.Title,
 		FieldOfExpertise: cmd.FieldOfExpertise,
+		Email:            cmd.Email,
 	}
 
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

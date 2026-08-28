@@ -3,17 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
-	"math"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/command"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/cqrs/query"
 	outbox2 "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/repo/outbox"
-	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/outbox"
-	"google.golang.org/grpc"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecturer-service/internal/service/saga"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,8 +22,6 @@ import (
 )
 
 type GrpcServer struct {
-	db *gorm.DB
-
 	createLecturerHandler    *command.CreateLecturerHandler
 	updateLecturerHandler    *command.UpdateLecturerHandler
 	deleteLecturerHandler    *command.DeleteLecturerHandler
@@ -36,9 +30,6 @@ type GrpcServer struct {
 	listLecturersHandler     *query.ListLecturersHandler
 
 	lecturerpb.UnimplementedLecturerServiceServer
-	PublisherConn   rabbitmq.PublisherConn
-	ConsumerConn    rabbitmq.ConsumerConn
-	outboxProcessor *outbox.OutboxProcessor
 }
 
 var maxTries = 5
@@ -51,47 +42,19 @@ func isRetriable(grpcCode codes.Code) bool {
 		grpcCode != codes.PermissionDenied
 }
 
-func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
-	lecturerRepo := repo.NewLecturerRepo(db)
-	outboxRepo := outbox2.NewOutboxRepo(db)
-
-	var consumerConn *rabbitmq.ConsumerConn
-	var publisherConn *rabbitmq.PublisherConn
-	var err error
-	consumerConn, err = rabbitmq.NewConsumerConn(ctx, os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE"), nil, db, *lecturerRepo)
-	publisherConn, err = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE"), nil)
-
-	if err != nil {
-		log.Err(err).Msg("unable to create grpc server")
-		return nil
-	}
+func NewGrpcServer(
+	db *gorm.DB,
+	lecturerRepo *repo.LecturerRepo,
+	outboxRepo *outbox2.OutboxRepo,
+	publisherConn *rabbitmq.PublisherConn,
+	sagaReplies *saga.SagaReplyRegistry,
+) *GrpcServer {
 	createHandler := command.NewCreateLecturerHandler(db, lecturerRepo, outboxRepo)
-	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, consumerConn)
+	updateHandler := command.NewUpdateLecturerHandler(lecturerRepo, db, publisherConn, sagaReplies)
 	deleteHandler := command.NewDeleteLecturerHandler(lecturerRepo)
 	getByIDHandler := query.NewGetLecturerByIDHandler(lecturerRepo)
 	getByNameHandler := query.NewGetLecturerByNameHandler(lecturerRepo)
 	listHandler := query.NewListLecturersHandler(lecturerRepo)
-
-	//var lecturerBrokerConn *rabbitmq.PublisherConn
-	//var lecturerScheduler *scheduler.Scheduler
-	//var mailPublisher *rabbitmq.MailPublisher
-	//sendQueue := os.Getenv("RABBIT_LECTURE_QUEUE")
-	//
-	//lecturerBrokerConn = rabbitmq.NewPublisherConn(ctx, os.Getenv("RABBITMQ_BROKER_URI"), nil)
-	//if lecturerBrokerConn == nil {
-	//	log.Fatal().Msg("unable to connect to create rabbitmq connection")
-	//} else {
-	//	lecturerBrokerConn.NewQueueRequester(ctx, lecturerBrokerConn.Connection, sendQueue)
-	//	lecturerScheduler = scheduler.NewScheduler(10, 100)
-	//
-	//	ailPublisher, err = rabbitmq.NewMailPublisher(ctx, lecturerBrokerConn.Connection, os.Getenv("RABBITMQ_LECTURE_MAIL_QUEUE"))
-	//	if err != nil || mailPublisher == nil {
-	//		return nil
-	//	}m
-	//}
-
-	outboxProcessor := outbox.NewOutboxProcessor(db, outboxRepo, publisherConn)
-	outboxProcessor.StartPoller(ctx, 2*time.Second)
 
 	env := os.Getenv("ENVIRONMENT")
 	var lecturerUrl string
@@ -110,65 +73,14 @@ func NewGrpcServer(ctx context.Context, db *gorm.DB) *GrpcServer {
 	}
 	log.Info().Msg(fmt.Sprintf("lecturer gRPC server url: %s", lecturerUrl))
 
-	var loggerInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		err := invoker(ctx, method, req, reply, cc, opts...)
-		st, _ := status.FromError(err)
-		switch st.Code() {
-		case codes.OK:
-			log.Info().Msg(fmt.Sprintf("method %s called", method))
-		case codes.DeadlineExceeded:
-			log.Error().Msg(fmt.Sprintf("time exceeded for method %s", method))
-		}
-		return err
-	}
-
-	var timeoutInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctxt, cancel := context.WithTimeout(ctx, time.Duration(70)*time.Millisecond)
-		defer cancel()
-		return invoker(ctxt, method, req, reply, cc, opts...)
-	}
-
-	var retryInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		var err error
-		for try := 0; try < maxTries; try++ {
-			if try > 0 {
-				jitter := rand.Intn(100)
-				time.Sleep(time.Duration(math.Pow(2, float64(try)))*100*time.Millisecond + time.Duration(jitter))
-				log.Warn().Msg(fmt.Sprintf("retrying method %s attempt %d/%d", method, try+1, maxTries))
-			}
-			err = invoker(ctx, method, req, reply, cc, opts...)
-			if err == nil {
-				break
-			}
-			st, _ := status.FromError(err)
-			if !isRetriable(st.Code()) {
-				break
-			}
-		}
-		return err
-	}
-
-	grpc.WithChainUnaryInterceptor(loggerInterceptor)
-	grpc.WithChainUnaryInterceptor(retryInterceptor)
-	grpc.WithChainUnaryInterceptor(timeoutInterceptor)
-
-	grpcServer := &GrpcServer{
-		db: db,
-
+	return &GrpcServer{
 		createLecturerHandler:    createHandler,
 		updateLecturerHandler:    updateHandler,
 		deleteLecturerHandler:    deleteHandler,
 		getLecturerByIDHandler:   getByIDHandler,
 		getLecturerByNameHandler: getByNameHandler,
 		listLecturersHandler:     listHandler,
-
-		outboxProcessor: outboxProcessor,
 	}
-	if publisherConn != nil {
-		grpcServer.PublisherConn = *publisherConn
-	}
-
-	return grpcServer
 }
 
 func (g *GrpcServer) CreateLecturer(ctx context.Context, req *lecturerpb.CreateLecturerRequest) (*lecturerpb.CreateLecturerResponse, error) {
@@ -179,6 +91,7 @@ func (g *GrpcServer) CreateLecturer(ctx context.Context, req *lecturerpb.CreateL
 		FullName:         req.FullName,
 		Title:            req.Title,
 		FieldOfExpertise: req.FieldOfExpertise,
+		Email:            req.Email,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
@@ -275,7 +188,7 @@ func (g *GrpcServer) UpdateLecturer(ctx context.Context, req *lecturerpb.UpdateL
 		return nil, status.Error(codes.InvalidArgument, "id is required for lecturer update")
 	}
 	err := g.updateLecturerHandler.Handle(ctx, command.UpdateLecturerCommand{
-		Id: req.Id, FullName: req.FullName, Title: req.Title, FieldOfExpertise: req.FieldOfExpertise,
+		Id: req.Id, FullName: req.FullName, Title: req.Title, FieldOfExpertise: req.FieldOfExpertise, Email: req.Email,
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%v", err))
@@ -294,32 +207,11 @@ func (g *GrpcServer) DeleteLecturer(ctx context.Context, req *lecturerpb.DeleteL
 	return &lecturerpb.DeleteLecturerResponse{Lecturer: lecturerModelToProto(lecturer)}, nil
 }
 
-//func (g *GrpcServer) SendEmail(ctx context.Context, req *lecturerpb.SendEmailRequest) (*emptypb.Empty, error) {
-//	if req == nil || req.To == "" || req.Subject == "" {
-//		return nil, status.Error(codes.InvalidArgument, "to and subject are required")
-//	}
-//
-//	email := model.EmailMessage{
-//		IdempotentKey: uuid.New(),
-//		To:            req.To,
-//		Subject:       req.Subject,
-//		Body:          req.Body,
-//		RetryCount:    0,
-//		ForceFail:     req.ForceFail, // demo flag
-//	}
-//
-//	if err := g.MailPublisher.PublishEmail(ctx, email); err != nil {
-//		return nil, status.Error(codes.Internal, fmt.Sprintf("failed to enqueue email: %v", err))
-//	}
-//
-//	return &emptypb.Empty{}, nil
-//}
-
 func lecturerModelToProto(l *model.Lecturer) *lecturerpb.Lecturer {
 	if l == nil {
 		return nil
 	}
 	return &lecturerpb.Lecturer{
-		Id: l.Id, FullName: l.FullName, Title: l.Title, FieldOfExpertise: l.FieldOfExpertise,
+		Id: l.Id, FullName: l.FullName, Title: l.Title, FieldOfExpertise: l.FieldOfExpertise, Email: l.Email,
 	}
 }

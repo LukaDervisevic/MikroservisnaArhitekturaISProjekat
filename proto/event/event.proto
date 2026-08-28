@@ -139,3 +139,99 @@ service EventService {
     // List Events by type
     rpc ListEventsByType(ListEventsByTypeRequest)   returns (ListEventsByTypeResponse) {}
 }
+
+message SourcedEvent {
+    string event_id                       = 1;
+    string aggregate_id                   = 2;
+    int64 version                         = 3;
+    string event_type                     = 4;
+    google.protobuf.Timestamp occurred_at = 5;
+    string details                        = 6;
+}
+
+message CreateSourcedEventRequest {
+    string name                           = 1;
+    double cotisation_price               = 2;
+    string agenda                         = 3;
+    string type                           = 4;
+    google.protobuf.Timestamp date_time   = 5;
+    int64 location_id                     = 6;
+}
+
+message SourcedEventMutationResponse {
+    string aggregate_id = 1;
+    int64 version        = 2;
+}
+
+message RenameSourcedEventRequest {
+    string aggregate_id = 1;
+    string new_name      = 2;
+}
+
+message RescheduleSourcedEventRequest {
+    string aggregate_id                     = 1;
+    google.protobuf.Timestamp new_date_time = 2;
+}
+
+message RelocateSourcedEventRequest {
+    string aggregate_id     = 1;
+    int64 new_location_id   = 2;
+}
+
+message ChangeSourcedEventPriceRequest {
+    string aggregate_id = 1;
+    double new_price     = 2;
+}
+
+message CancelSourcedEventRequest {
+    string aggregate_id = 1;
+    string reason        = 2;
+}
+
+message GetSourcedEventStateRequest {
+    string aggregate_id = 1;
+}
+
+message GetSourcedEventStateResponse {
+    string aggregate_id                   = 1;
+    int64 version                         = 2;
+    string name                           = 3;
+    double cotisation_price               = 4;
+    string agenda                         = 5;
+    string type                           = 6;
+    google.protobuf.Timestamp date_time   = 7;
+    int64 location_id                     = 8;
+    bool cancelled                        = 9;
+}
+
+message GetSourcedEventHistoryRequest {
+    string aggregate_id = 1;
+}
+
+message GetSourcedEventHistoryResponse {
+    repeated SourcedEvent events = 1;
+}
+
+message CreateSourcedEventSnapshotRequest {
+    string aggregate_id = 1;
+}
+
+message CreateSourcedEventSnapshotResponse {
+    string aggregate_id = 1;
+    int64 version        = 2;
+}
+
+
+service EventSourcingService {
+    rpc CreateSourcedEvent(CreateSourcedEventRequest)             returns (SourcedEventMutationResponse) {}
+    rpc RenameSourcedEvent(RenameSourcedEventRequest)             returns (SourcedEventMutationResponse) {}
+    rpc RescheduleSourcedEvent(RescheduleSourcedEventRequest)     returns (SourcedEventMutationResponse) {}
+    rpc RelocateSourcedEvent(RelocateSourcedEventRequest)         returns (SourcedEventMutationResponse) {}
+    rpc ChangeSourcedEventPrice(ChangeSourcedEventPriceRequest)   returns (SourcedEventMutationResponse) {}
+    rpc CancelSourcedEvent(CancelSourcedEventRequest)             returns (SourcedEventMutationResponse) {}
+
+    rpc GetSourcedEventState(GetSourcedEventStateRequest)         returns (GetSourcedEventStateResponse) {}
+    rpc GetSourcedEventHistory(GetSourcedEventHistoryRequest)     returns (GetSourcedEventHistoryResponse) {}
+
+    rpc CreateSourcedEventSnapshot(CreateSourcedEventSnapshotRequest) returns (CreateSourcedEventSnapshotResponse) {}
+}

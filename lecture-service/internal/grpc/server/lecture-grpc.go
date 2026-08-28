@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
@@ -14,6 +15,7 @@ import (
 	lecturepb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	lecturerpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecturer"
 	locationpb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/location"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -28,20 +30,28 @@ type GrpcServer struct {
 	deleteLectureHandler *command.DeleteLectureHandler
 
 	lecturepb.UnimplementedLectureServiceServer
+	lecturerClient lecturerpb.LecturerServiceClient
+	eventClient    eventpb.EventServiceClient
 }
 
 func NewGrpcServer(
 	db *gorm.DB,
 	publisherConn *rabbitmq.PublisherConn,
+	lecturerClient lecturerpb.LecturerServiceClient,
+	eventClient eventpb.EventServiceClient,
 	sagaReplies *saga.SagaReplyRegistry,
 	lectureRepo *repo.LectureRepo,
 	eventRepo *repo.EventRepo,
 	lecturerRepo *repo.LecturerRepo,
+	mailPublisher *rabbitmq.MailPublisher,
 ) *GrpcServer {
+
 	return &GrpcServer{
-		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn),
-		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, lectureRepo, publisherConn, sagaReplies),
-		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, lectureRepo, publisherConn),
+		createLectureHandler: command.NewCreateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn, mailPublisher),
+		updateLectureHandler: command.NewUpdateLectureHandler(db, lectureRepo, eventRepo, lecturerRepo, publisherConn, sagaReplies),
+		deleteLectureHandler: command.NewDeleteLectureHandler(db, lectureRepo, publisherConn),
+		eventClient:          eventClient,
+		lecturerClient:       lecturerClient,
 	}
 }
 
@@ -49,6 +59,36 @@ func (g *GrpcServer) CreateLecture(ctx context.Context, req *lecturepb.CreateLec
 	if req == nil || req.Name == "" || req.EventId == 0 || req.LecturerId == 0 {
 		return nil, status.Error(codes.InvalidArgument, "name, event_id and lecturer_id are required for lecture creation")
 	}
+	lecturerValidChan := make(chan error, 1)
+	eventValidChan := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		res, err := g.lecturerClient.GetLecturerByID(ctx, &lecturerpb.GetLecturerByIDRequest{Id: req.LecturerId})
+		if err != nil || res == nil {
+			lecturerValidChan <- err
+			return
+		}
+		lecturerValidChan <- nil
+	})
+	wg.Go(func() {
+		res, err := g.eventClient.GetEventByID(ctx, &eventpb.GetEventByIdRequest{Id: req.EventId})
+		if err != nil || res == nil {
+			eventValidChan <- err
+			return
+		}
+		eventValidChan <- nil
+	})
+	wg.Wait()
+
+	if err := <-lecturerValidChan; err != nil {
+		log.Error().Err(err).Str("code", status.Code(err).String()).Msg("lecture check failed")
+		return nil, status.Error(codes.Internal, "lecturer doesn't exist")
+	}
+	if err := <-eventValidChan; err != nil {
+		log.Error().Err(err).Str("code", status.Code(err).String()).Msg("event check failed")
+		return nil, status.Error(codes.Internal, "event doesn't exist")
+	}
+
 	lecture, err := g.createLectureHandler.Handle(ctx, command.CreateLectureCommand{
 		EventID: req.EventId, LecturerID: req.LecturerId, Name: req.Name, Duration: req.Duration.GetSeconds(),
 	})
@@ -88,7 +128,7 @@ func lectureModelToProto(l *model.Lecture) *lecturepb.Lecture {
 	}
 	return &lecturepb.Lecture{
 		Id: l.LectureID, Lecturer: lecturerModelToProto(l.Lecturer), Event: eventModelToProto(l.Event),
-		Name: l.Name, Duration: durationpb.New(time.Duration(l.Duration)),
+		Name: l.Name, Duration: durationpb.New(time.Duration(l.Duration) * time.Second),
 	}
 }
 

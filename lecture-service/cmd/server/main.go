@@ -2,19 +2,22 @@ package main
 
 import (
 	"context"
+	"io"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/broker/rabbitmq"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/config"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/db"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/client"
+	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/interceptors"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/grpc/server"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/repo"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-service/internal/service/saga"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
-	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 )
@@ -34,26 +37,45 @@ func main() {
 
 	brokerURI := os.Getenv("RABBITMQ_BROKER_URI")
 
+	fromLecturerQueue := os.Getenv("RABBITMQ_LECTURER_TO_LECTURE_QUEUE")
+	fromEventQueue := os.Getenv("RABBITMQ_EVENT_TO_LECTURE_QUEUE")
+	replyToLectureQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURE_QUEUE")
+	toLectureQueryQueue := os.Getenv("RABBITMQ_LECTURE_TO_LECTURE_QUERY_QUEUE")
+	replyToLecturerQueue := os.Getenv("RABBITMQ_REPLY_TO_LECTURER_QUEUE")
+	sagaReplyEventQueue := os.Getenv("RABBITMQ_SAGA_REPLY_EVENT_QUEUE")
+
+	mailQueue := os.Getenv("RABBITMQ_MAIL_QUEUE")
+
 	publisherConn, err := rabbitmq.NewPublisherConn(ctx, brokerURI, nil)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create publisher connection")
+	}
+	for _, queue := range []string{toLectureQueryQueue, replyToLecturerQueue, sagaReplyEventQueue} {
+		if err := publisherConn.NewQueuePublisher(ctx, publisherConn.Connection, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to create publisher for queue %s", queue)
+		}
+	}
+
+	mailPublisher, err := rabbitmq.NewMailPublisher(ctx, publisherConn, mailQueue)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("failed to create mail publisher for queue %s", mailQueue)
 	}
 
 	sagaReplies := saga.NewSagaReplyRegistry()
 	lectureRepo := repo.NewLectureRepo(conn)
 	eventRepo := repo.NewEventRepo(conn)
+	locationRepo := repo.NewLocationRepo(conn)
 	lecturerRepo := repo.NewLecturerRepo(conn)
 
-	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, lecturerRepo, sagaReplies)
+	consumerConn, err := rabbitmq.NewConsumerConn(ctx, brokerURI, nil, conn, eventRepo, locationRepo, lecturerRepo, lectureRepo, sagaReplies, publisherConn)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create consumer connection")
 	}
 
-	if err := consumerConn.NewQueueResponder(ctx, "lecture-events"); err != nil {
-		log.Fatal().Err(err).Msg("failed to start lecture-events responder")
-	}
-	if err := consumerConn.NewQueueResponder(ctx, "lecturers"); err != nil {
-		log.Fatal().Err(err).Msg("failed to start lecturers responder")
+	for _, queue := range []string{fromLecturerQueue, fromEventQueue, replyToLectureQueue} {
+		if err := consumerConn.NewQueueConsumer(ctx, queue); err != nil {
+			log.Fatal().Err(err).Msgf("failed to start consumer for queue %s", queue)
+		}
 	}
 
 	port := os.Getenv("LECTURE_SERVICE_PORT")
@@ -63,7 +85,41 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(conn, publisherConn, sagaReplies, lectureRepo, eventRepo, lecturerRepo))
+
+	var maxFailuresLectureService uint64 = 5
+	lectureCircuitBreaker := interceptors.NewCircuitBreaker(maxFailuresLectureService, time.Second*60)
+
+	lecturerClient, closerLecturer, err := client.NewLecturerClient(os.Getenv("LECTURER_SERVICE_ADDR")+":"+os.Getenv("LECTURER_SERVICE_PORT"),
+		"lecture-service", lectureCircuitBreaker)
+	defer func(closer io.Closer) {
+		err := closer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to connect to lecturer service")
+		}
+	}(closerLecturer)
+
+	var maxFailuresEventService uint64 = 5
+	eventCircuitBreaker := interceptors.NewCircuitBreaker(maxFailuresEventService, time.Second*60)
+
+	eventClient, closerEvent, err := client.NewEventClient(os.Getenv("EVENT_SERVICE_ADDR")+":"+os.Getenv("EVENT_SERVICE_PORT"),
+		"event-service", eventCircuitBreaker)
+	defer func(closer io.Closer) {
+		err := closer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("unable to connect to event service")
+		}
+	}(closerEvent)
+
+	lecture.RegisterLectureServiceServer(grpcServer, server.NewGrpcServer(
+		conn,
+		publisherConn,
+		lecturerClient,
+		eventClient,
+		sagaReplies,
+		lectureRepo,
+		eventRepo,
+		lecturerRepo,
+		mailPublisher))
 
 	go func() {
 		log.Printf("starting lecture service grpc server on port %v...", port)
@@ -71,30 +127,6 @@ func main() {
 			log.Fatal().Err(err).Msg("failed to serve grpc request")
 			cancel()
 		}
-	}()
-
-	go func() {
-		env := rmq.NewEnvironment(brokerURI, nil)
-		mailConn, err := env.NewConnection(ctx)
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to connect to rabbitmq")
-			return
-		}
-
-		outbox, err := repo.NewOutboxRepo("outbox")
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to init outbox")
-			return
-		}
-
-		consumer, err := rabbitmq.NewMailConsumer(ctx, mailConn, outbox, "mail.send", "mail.dlq")
-		if err != nil {
-			log.Error().Err(err).Msg("mail worker: failed to create consumer")
-			return
-		}
-		defer consumer.Close(ctx)
-
-		consumer.Start(ctx)
 	}()
 
 	stop := make(chan os.Signal, 1)

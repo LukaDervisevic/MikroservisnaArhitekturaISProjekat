@@ -15,7 +15,6 @@ WORKDIR /lecture-query-docker
 
 COPY --from=builder /lecture-query-docker/main .
 COPY --from=builder /lecture-query-docker/lecture-query-service/internal/migrations /lecture-query-docker/internal/migrations
-COPY --from=builder /lecture-query-docker/lecture-query-service/.env.docker /lecture-query-docker/lecture-query-service/.env.docker
 
 EXPOSE 50055
 
