@@ -27,8 +27,8 @@ var RetryInterceptor grpc.UnaryClientInterceptor = func(ctx context.Context, met
 	var err error
 	for try := 0; try <= maxTries; try++ {
 		if try > 0 {
-			jitter := rand.Intn(100)
-			time.Sleep(time.Duration(math.Pow(2, float64(try)))*100*time.Millisecond + time.Duration(jitter))
+			jitter := time.Duration(rand.Intn(100)) * time.Millisecond
+			time.Sleep(time.Duration(math.Pow(2, float64(try)))*100*time.Millisecond + jitter)
 			log.Warn().Msg(fmt.Sprintf("retrying method %s attempt %d/%d", method, try+1, maxTries))
 		}
 		err = invoker(ctx, method, req, reply, cc, opts...)
