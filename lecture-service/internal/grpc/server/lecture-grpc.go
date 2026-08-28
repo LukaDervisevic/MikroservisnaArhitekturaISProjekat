@@ -128,7 +128,7 @@ func lectureModelToProto(l *model.Lecture) *lecturepb.Lecture {
 	}
 	return &lecturepb.Lecture{
 		Id: l.LectureID, Lecturer: lecturerModelToProto(l.Lecturer), Event: eventModelToProto(l.Event),
-		Name: l.Name, Duration: durationpb.New(time.Duration(l.Duration)),
+		Name: l.Name, Duration: durationpb.New(time.Duration(l.Duration) * time.Second),
 	}
 }
 

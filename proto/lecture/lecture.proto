@@ -34,6 +34,8 @@ message LectureQuery {
     string location_name = 13;
     string location_address = 14;
     int64 location_capacity = 15;
+    string lecture_name = 16;
+    google.protobuf.Duration lecture_duration = 17;
 }
 
 message CreateLectureRequest {

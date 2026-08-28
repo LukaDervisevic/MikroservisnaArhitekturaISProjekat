@@ -119,6 +119,8 @@ type LectureQuery struct {
 	LocationName             string                 `protobuf:"bytes,13,opt,name=location_name,json=locationName,proto3" json:"location_name,omitempty"`
 	LocationAddress          string                 `protobuf:"bytes,14,opt,name=location_address,json=locationAddress,proto3" json:"location_address,omitempty"`
 	LocationCapacity         int64                  `protobuf:"varint,15,opt,name=location_capacity,json=locationCapacity,proto3" json:"location_capacity,omitempty"`
+	LectureName              string                 `protobuf:"bytes,16,opt,name=lecture_name,json=lectureName,proto3" json:"lecture_name,omitempty"`
+	LectureDuration          *durationpb.Duration   `protobuf:"bytes,17,opt,name=lecture_duration,json=lectureDuration,proto3" json:"lecture_duration,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -256,6 +258,20 @@ func (x *LectureQuery) GetLocationCapacity() int64 {
 		return x.LocationCapacity
 	}
 	return 0
+}
+
+func (x *LectureQuery) GetLectureName() string {
+	if x != nil {
+		return x.LectureName
+	}
+	return ""
+}
+
+func (x *LectureQuery) GetLectureDuration() *durationpb.Duration {
+	if x != nil {
+		return x.LectureDuration
+	}
+	return nil
 }
 
 type CreateLectureRequest struct {
@@ -1080,7 +1096,7 @@ const file_proto_lecture_lecture_proto_rawDesc = "" +
 	"\blecturer\x18\x02 \x01(\v2\x12.lecturer.LecturerR\blecturer\x12\"\n" +
 	"\x05event\x18\x03 \x01(\v2\f.event.EventR\x05event\x12\x12\n" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x125\n" +
-	"\bduration\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\bduration\"\xf6\x04\n" +
+	"\bduration\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\bduration\"\xdf\x05\n" +
 	"\fLectureQuery\x12\x1d\n" +
 	"\n" +
 	"lecture_id\x18\x01 \x01(\x03R\tlectureId\x12\x1f\n" +
@@ -1102,7 +1118,9 @@ const file_proto_lecture_lecture_proto_rawDesc = "" +
 	"locationId\x12#\n" +
 	"\rlocation_name\x18\r \x01(\tR\flocationName\x12)\n" +
 	"\x10location_address\x18\x0e \x01(\tR\x0flocationAddress\x12+\n" +
-	"\x11location_capacity\x18\x0f \x01(\x03R\x10locationCapacity\"\x9d\x01\n" +
+	"\x11location_capacity\x18\x0f \x01(\x03R\x10locationCapacity\x12!\n" +
+	"\flecture_name\x18\x10 \x01(\tR\vlectureName\x12D\n" +
+	"\x10lecture_duration\x18\x11 \x01(\v2\x19.google.protobuf.DurationR\x0flectureDuration\"\x9d\x01\n" +
 	"\x14CreateLectureRequest\x12\x1f\n" +
 	"\vlecturer_id\x18\x01 \x01(\x03R\n" +
 	"lecturerId\x12\x19\n" +
@@ -1208,35 +1226,36 @@ var file_proto_lecture_lecture_proto_depIdxs = []int32{
 	18, // 1: lecture.Lecture.event:type_name -> event.Event
 	19, // 2: lecture.Lecture.duration:type_name -> google.protobuf.Duration
 	20, // 3: lecture.LectureQuery.event_date_time:type_name -> google.protobuf.Timestamp
-	19, // 4: lecture.CreateLectureRequest.duration:type_name -> google.protobuf.Duration
-	0,  // 5: lecture.CreateLectureResponse.lecture:type_name -> lecture.Lecture
-	0,  // 6: lecture.GetLectureByIDResponse.lecture:type_name -> lecture.Lecture
-	0,  // 7: lecture.GetLectureByNameResponse.lecture:type_name -> lecture.Lecture
-	1,  // 8: lecture.GetLectureByNameQueryResponse.lecture:type_name -> lecture.LectureQuery
-	1,  // 9: lecture.GetLectureByIDQueryResponse.lecture:type_name -> lecture.LectureQuery
-	1,  // 10: lecture.ListLecturesByEventIDResponse.lectures:type_name -> lecture.LectureQuery
-	1,  // 11: lecture.ListLecturesByLecturerIDResponse.lectures:type_name -> lecture.LectureQuery
-	19, // 12: lecture.UpdateLectureRequest.duration:type_name -> google.protobuf.Duration
-	0,  // 13: lecture.DeleteLectureResponse.lecture:type_name -> lecture.Lecture
-	2,  // 14: lecture.LectureService.CreateLecture:input_type -> lecture.CreateLectureRequest
-	14, // 15: lecture.LectureService.UpdateLecture:input_type -> lecture.UpdateLectureRequest
-	15, // 16: lecture.LectureService.DeleteLecture:input_type -> lecture.DeleteLectureRequest
-	4,  // 17: lecture.LectureService.GetLectureByID:input_type -> lecture.GetLectureByIDRequest
-	6,  // 18: lecture.LectureService.GetLectureByName:input_type -> lecture.GetLectureByNameRequest
-	10, // 19: lecture.LectureService.ListLecturesByEventID:input_type -> lecture.ListLecturesByEventIDRequest
-	12, // 20: lecture.LectureService.ListLecturesByLecturerID:input_type -> lecture.ListLecturesByLecturerIDRequest
-	3,  // 21: lecture.LectureService.CreateLecture:output_type -> lecture.CreateLectureResponse
-	21, // 22: lecture.LectureService.UpdateLecture:output_type -> google.protobuf.Empty
-	16, // 23: lecture.LectureService.DeleteLecture:output_type -> lecture.DeleteLectureResponse
-	9,  // 24: lecture.LectureService.GetLectureByID:output_type -> lecture.GetLectureByIDQueryResponse
-	8,  // 25: lecture.LectureService.GetLectureByName:output_type -> lecture.GetLectureByNameQueryResponse
-	11, // 26: lecture.LectureService.ListLecturesByEventID:output_type -> lecture.ListLecturesByEventIDResponse
-	13, // 27: lecture.LectureService.ListLecturesByLecturerID:output_type -> lecture.ListLecturesByLecturerIDResponse
-	21, // [21:28] is the sub-list for method output_type
-	14, // [14:21] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	19, // 4: lecture.LectureQuery.lecture_duration:type_name -> google.protobuf.Duration
+	19, // 5: lecture.CreateLectureRequest.duration:type_name -> google.protobuf.Duration
+	0,  // 6: lecture.CreateLectureResponse.lecture:type_name -> lecture.Lecture
+	0,  // 7: lecture.GetLectureByIDResponse.lecture:type_name -> lecture.Lecture
+	0,  // 8: lecture.GetLectureByNameResponse.lecture:type_name -> lecture.Lecture
+	1,  // 9: lecture.GetLectureByNameQueryResponse.lecture:type_name -> lecture.LectureQuery
+	1,  // 10: lecture.GetLectureByIDQueryResponse.lecture:type_name -> lecture.LectureQuery
+	1,  // 11: lecture.ListLecturesByEventIDResponse.lectures:type_name -> lecture.LectureQuery
+	1,  // 12: lecture.ListLecturesByLecturerIDResponse.lectures:type_name -> lecture.LectureQuery
+	19, // 13: lecture.UpdateLectureRequest.duration:type_name -> google.protobuf.Duration
+	0,  // 14: lecture.DeleteLectureResponse.lecture:type_name -> lecture.Lecture
+	2,  // 15: lecture.LectureService.CreateLecture:input_type -> lecture.CreateLectureRequest
+	14, // 16: lecture.LectureService.UpdateLecture:input_type -> lecture.UpdateLectureRequest
+	15, // 17: lecture.LectureService.DeleteLecture:input_type -> lecture.DeleteLectureRequest
+	4,  // 18: lecture.LectureService.GetLectureByID:input_type -> lecture.GetLectureByIDRequest
+	6,  // 19: lecture.LectureService.GetLectureByName:input_type -> lecture.GetLectureByNameRequest
+	10, // 20: lecture.LectureService.ListLecturesByEventID:input_type -> lecture.ListLecturesByEventIDRequest
+	12, // 21: lecture.LectureService.ListLecturesByLecturerID:input_type -> lecture.ListLecturesByLecturerIDRequest
+	3,  // 22: lecture.LectureService.CreateLecture:output_type -> lecture.CreateLectureResponse
+	21, // 23: lecture.LectureService.UpdateLecture:output_type -> google.protobuf.Empty
+	16, // 24: lecture.LectureService.DeleteLecture:output_type -> lecture.DeleteLectureResponse
+	9,  // 25: lecture.LectureService.GetLectureByID:output_type -> lecture.GetLectureByIDQueryResponse
+	8,  // 26: lecture.LectureService.GetLectureByName:output_type -> lecture.GetLectureByNameQueryResponse
+	11, // 27: lecture.LectureService.ListLecturesByEventID:output_type -> lecture.ListLecturesByEventIDResponse
+	13, // 28: lecture.LectureService.ListLecturesByLecturerID:output_type -> lecture.ListLecturesByLecturerIDResponse
+	22, // [22:29] is the sub-list for method output_type
+	15, // [15:22] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_proto_lecture_lecture_proto_init() }

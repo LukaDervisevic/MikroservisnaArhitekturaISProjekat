@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/cqrs/query"
 	"github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/lecture-query-service/internal/model"
@@ -10,6 +11,7 @@ import (
 	lecturepb "github.com/LukaDervisevic/MikroservisnaArhitekturaISProjekat/proto/lecture"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -129,5 +131,7 @@ func lectureQueryToProto(l *model.LectureQuery) *lecturepb.LectureQuery {
 		LocationName:             l.LocationName,
 		LocationAddress:          l.LocationAddress,
 		LocationCapacity:         l.LocationCapacity,
+		LectureName:              l.Name,
+		LectureDuration:          durationpb.New(time.Duration(l.Duration) * time.Second),
 	}
 }

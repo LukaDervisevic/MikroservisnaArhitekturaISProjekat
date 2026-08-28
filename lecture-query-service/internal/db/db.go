@@ -25,10 +25,10 @@ func Connect() *gorm.DB {
 
 	var sslMode string
 	var err error
-	if os.Getenv("ENVIRONMENT") == "local" {
+	if os.Getenv("ENVIRONMENT") == "local" || os.Getenv("ENVIRONMENT") == "docker" {
 		sslMode = "sslmode=disable"
 	} else {
-		sslMode = "sslmode=enable"
+		sslMode = "sslmode=require"
 	}
 
 	dbUrl := &url.URL{
